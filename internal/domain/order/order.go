@@ -9,7 +9,6 @@ import (
 
 type Order struct {
 	gorm.Model
-	ID        int64	`gorm:"primaryKey"`
 	OrderDate time.Time
 	Total     float64
 	Client    string

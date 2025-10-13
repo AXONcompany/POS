@@ -1,9 +1,13 @@
 package table
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type Table struct{
-    ID int64    `gorm:"primaryKey"`
+    gorm.Model
     Number int
     Capacity int
     IsAvailable bool

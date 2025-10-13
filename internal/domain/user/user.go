@@ -1,8 +1,10 @@
 package user
 
+import "gorm.io/gorm"
+
 
 type User struct{
-	ID int64	`gorm:"primaryKey"`
+	gorm.Model
 	Email string
 	Password string
 }
