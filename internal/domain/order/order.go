@@ -13,5 +13,5 @@ type Order struct {
 	Total     float64
 	Client    string
 	Products  []*product.Product `gorm:"many2many: order_products;"`
-	Tables 	  []*table.Table  `gorm:"foreignKey:OrderID;references:ID"`
+	Tables 	  []*table.Table  `gorm:"foreignKey:OrderID"`
 }

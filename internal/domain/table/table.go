@@ -13,5 +13,5 @@ type Table struct{
     IsAvailable bool
     OcuppiedAt time.Time
     ReleasedAt time.Time
-    OrderID int64
+    OrderID uint
 }
