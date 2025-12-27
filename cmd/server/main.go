@@ -1,40 +1,55 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
 	"os"
-	"github.com/joho/godotenv"
-	"github.com/AXONcompany/POS/internal/infrastructure/perisistence/postgres"
+	"os/signal"
+	"syscall"
+	"time"
+
+	appcfg "github.com/AXONcompany/POS/internal/config"
+	apphttp "github.com/AXONcompany/POS/internal/http"
 )
 
+func main() {
 
-func loadVariable(key string)string{
-	err := godotenv.Load()
-	if err != nil{
-		log.Fatalf("Error loading .env file")
+	cfg, err := appcfg.Load()
+	if err != nil {
+		log.Fatalf("config error: %v", err)
 	}
 
-	return os.Getenv(key)
-}
+	router := apphttp.NewRouter(cfg)
 
-func main(){
-
-	DB_NAME := loadVariable("DB_NAME")
-	DB_PASS := loadVariable("DB_PASSWORD")
-	DB_HOST := loadVariable("DB_HOST")
-	DB_USER := loadVariable("DB_USER")
-	DB_PORT := loadVariable("DB_PORT")
-
-	err := postgres.Connect(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT)
-	err2 := postgres.Migrate()
-
-	if err != nil{
-		panic("error connecting to database"+err.Error())
+	srv := &http.Server{
+		Addr:         cfg.GetHTTPAddr(),
+		Handler:      router,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		IdleTimeout:  cfg.IdleTimeout,
 	}
 
-	if err2 != nil{
-		panic("error connecting to database" + err2.Error())
+	go func() {
+		log.Printf("server starting on %s (env=%s)", cfg.GetHTTPAddr(), cfg.Env)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen error: %v", err)
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM)
+	<-stop
+
+	log.Printf("server shutting down...")
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("shutdown error: %v", err)
 	}
 
+	time.Sleep(50 * time.Millisecond)
+	log.Printf("server stopped")
 
 }
