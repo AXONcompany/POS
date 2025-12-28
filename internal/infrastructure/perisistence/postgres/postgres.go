@@ -1,43 +1,45 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
-	"gorm.io/driver/postgres"
-    "gorm.io/gorm"
-	"github.com/AXONcompany/POS/internal/domain/product"
-	"github.com/AXONcompany/POS/internal/domain/order"
-	"github.com/AXONcompany/POS/internal/domain/table"
-	"github.com/AXONcompany/POS/internal/domain/user"
+	"time"
+
+	"github.com/AXONcompany/POS/internal/config"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-
-var DB *gorm.DB
-
-func Connect(host,user,password,dbname,port string)error{
-		
-	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
-		host, user, password, dbname, port,
-	)
-
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-
-	if err != nil{
-		return fmt.Errorf("error connecting to database %w", err)
-	}
-
-	DB = db
-
-	return nil
+type DB struct {
+	Pool *pgxpool.Pool
 }
 
+func Connect(ctx context.Context, cfg config.Config) (*DB, error) {
+	poolCfg, err := pgxpool.ParseConfig(cfg.GetPostgresDSN())
+	if err != nil {
+		return nil, fmt.Errorf("parse postgres dsn: %w", err)
+	}
 
-func Migrate()error{
-	return DB.AutoMigrate(
-		&product.Category{},
-		&product.Product{},
-		&order.Order{},
-		&table.Table{},
-		&user.User{},
-	)
+	poolCfg.MaxConns = cfg.PGMaxConns
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		return nil, fmt.Errorf("create postgres pool: %w", err)
+	}
+
+	pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	if err := pool.Ping(pingCtx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("ping postgres: %w", err)
+	}
+
+	return &DB{Pool: pool}, nil
+
+}
+
+func (d *DB) Close() {
+	if d != nil && d.Pool != nil {
+		d.Pool.Close()
+	}
 }

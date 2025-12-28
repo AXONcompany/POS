@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -38,13 +39,12 @@ func Load() (Config, error) {
 		WriteTimeout:    getDurationEnv("HTTP_WRITE_TIMEOUT", 10*time.Second),
 		IdleTimeout:     getDurationEnv("HTTP_IDLE_TIMEOUT", 60*time.Second),
 
-		//post-gres xd
-		PGHost:     getEnv("PG_HOST", "127.0.0.1"),
-		PGPort:     getEnv("PG_PORT", "5432"),
-		PGUser:     getEnv("PG_USER", "postgres"),
-		PGPassword: getEnv("PG_PASSWORD", "postgres"),
-		PGDatabase: getEnv("PG_DATABASE", "pos"),
-		PGSSLMode:  getEnv("PG_SSLMODE", "disable"),
+		PGHost:     getEnvFirst("PG_HOST", "DB_HOST", "POSTGRES_HOST", "127.0.0.1"),
+		PGPort:     getEnvFirst("PG_PORT", "DB_PORT", "POSTGRES_PORT", "5432"),
+		PGUser:     getEnvFirst("PG_USER", "DB_USER", "POSTGRES_USER", "postgres"),
+		PGPassword: getEnvFirst("PG_PASSWORD", "DB_PASSWORD", "POSTGRES_PASSWORD", "postgres"),
+		PGDatabase: getEnvFirst("PG_DATABASE", "DB_NAME", "POSTGRES_DB", "pos"),
+		PGSSLMode:  getEnvFirst("PG_SSLMODE", "DB_SSLMODE", "POSTGRES_SSLMODE", "disable"),
 		PGMaxConns: getI32Env("PG_MAX_CONNS", 10),
 	}
 
@@ -65,6 +65,20 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func (c Config) GetPostgresDSN() string {
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(c.PGUser, c.PGPassword),
+		Host:   fmt.Sprintf("%s:%s", c.PGHost, c.PGPort),
+		Path:   c.PGDatabase,
+	}
+
+	q := u.Query()
+	q.Set("sslmode", c.PGSSLMode)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func getI32Env(s string, i int32) int32 {
@@ -113,4 +127,21 @@ func getEnv(key, val string) string {
 		return v
 	}
 	return val
+}
+
+func getEnvFirst(keys ...string) string {
+	if len(keys) == 0 {
+		return ""
+	}
+
+	def := keys[len(keys)-1]
+	for _, k := range keys[:len(keys)-1] {
+		if v, ok := os.LookupEnv(k); ok {
+			v = strings.TrimSpace(v)
+			if v != "" {
+				return v
+			}
+		}
+	}
+	return def
 }

@@ -4,13 +4,13 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	appcfg "github.com/AXONcompany/POS/internal/config"
 	apphttp "github.com/AXONcompany/POS/internal/http"
+	apppg "github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres"
 )
 
 func main() {
@@ -19,6 +19,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("config error: %v", err)
 	}
+
+	db, err := apppg.Connect(context.Background(), cfg)
+	if err != nil {
+		log.Fatalf("db error: %v", err)
+	}
+	defer db.Close()
 
 	router := apphttp.NewRouter(cfg)
 
@@ -37,9 +43,9 @@ func main() {
 		}
 	}()
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGTERM)
-	<-stop
+	stopCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	<-stopCtx.Done()
 
 	log.Printf("server shutting down...")
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
@@ -49,7 +55,12 @@ func main() {
 		log.Printf("shutdown error: %v", err)
 	}
 
-	time.Sleep(50 * time.Millisecond)
+	shutdownTimer := time.NewTimer(250 * time.Millisecond)
+	defer shutdownTimer.Stop()
+	select {
+	case <-ctx.Done():
+	case <-shutdownTimer.C:
+	}
 	log.Printf("server stopped")
 
 }
