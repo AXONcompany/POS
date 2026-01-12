@@ -12,7 +12,7 @@ type Querier interface {
 	CreateIngredient(ctx context.Context, arg CreateIngredientParams) (Ingredient, error)
 	DeleteIngredient(ctx context.Context, id int64) error
 	GetIngredientByID(ctx context.Context, id int64) (Ingredient, error)
-	ListIngredients(ctx context.Context) ([]Ingredient, error)
+	ListIngredients(ctx context.Context, arg ListIngredientsParams) ([]Ingredient, error)
 	UpdateIngredient(ctx context.Context, arg UpdateIngredientParams) (Ingredient, error)
 }
 

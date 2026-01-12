@@ -67,9 +67,13 @@ func (r *IngredientRepository) DeleteIngredient(ctx context.Context, id int64) e
 	return r.q.DeleteIngredient(ctx, id)
 }
 
-func (r *IngredientRepository) GetAllIngredients(ctx context.Context) ([]ingredient.Ingredient, error) {
+func (r *IngredientRepository) GetAllIngredients(ctx context.Context, page, pageSize int) ([]ingredient.Ingredient, error) {
+	offset := (page - 1) * pageSize
 
-	rows, err := r.q.ListIngredients(ctx)
+	rows, err := r.q.ListIngredients(ctx, sqlc.ListIngredientsParams{
+		Limit:  int32(pageSize),
+		Offset: int32(offset),
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -10,9 +10,9 @@ import (
 
 	appcfg "github.com/AXONcompany/POS/internal/config"
 	apphttp "github.com/AXONcompany/POS/internal/http"
-	"github.com/AXONcompany/POS/internal/http/ingredient"
+	httping "github.com/AXONcompany/POS/internal/http/ingredient" //http ingredient
 	apppg "github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres"
-	"github.com/AXONcompany/POS/internal/usecase"
+	uing "github.com/AXONcompany/POS/internal/usecase/ingredients" //usecase ingredient
 )
 
 func main() {
@@ -32,10 +32,10 @@ func main() {
 	ingredientRepo := apppg.NewIngredientRepository(db)
 
 	// Service
-	ingredientService := usecase.NewIngredientService(ingredientRepo)
+	ingredientService := uing.NewIngredientService(ingredientRepo)
 
 	// Handler
-	ingredientHandler := ingredient.NewIngredientHandler(ingredientService)
+	ingredientHandler := httping.NewIngredientHandler(ingredientService)
 
 	// Router
 	router := apphttp.NewRouter(cfg, ingredientHandler)

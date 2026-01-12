@@ -32,7 +32,7 @@ services:
     restart: "no"
 
   app:
-    image: axoncompany/pos_axon:v1
+    image: axoncompany/pos_axon:v2
     container_name: pos_app
     depends_on:
       db:

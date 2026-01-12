@@ -16,7 +16,8 @@ where id = $1 and deleted_at is null;
 select id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
 from ingredients
 where deleted_at is null
-order by id;
+order by id
+limit $1 offset $2;
 
 -- name: UpdateIngredient :one
 update ingredients

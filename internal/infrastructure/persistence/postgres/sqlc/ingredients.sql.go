@@ -79,10 +79,16 @@ select id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure,
 from ingredients
 where deleted_at is null
 order by id
+limit $1 offset $2
 `
 
-func (q *Queries) ListIngredients(ctx context.Context) ([]Ingredient, error) {
-	rows, err := q.db.Query(ctx, listIngredients)
+type ListIngredientsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListIngredients(ctx context.Context, arg ListIngredientsParams) ([]Ingredient, error) {
+	rows, err := q.db.Query(ctx, listIngredients, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

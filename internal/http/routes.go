@@ -19,14 +19,16 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 		})
 	})
 
-	//r.GET("/ping", func(c *gin.Context) {
-	//	c.String(http.StatusOK, "server say: pong")
-	//})
+	r.GET("/ping", func(c *gin.Context) {
+		c.String(http.StatusOK, "server say: pong")
+	})
 
 	//ingredientes
 	ingredients := r.Group("/ingredients")
 	{
+		ingredients.GET("", ingredientHandler.GetAll)
 		ingredients.POST("", ingredientHandler.Create)
+		ingredients.GET("/:id", ingredientHandler.GetByID)
 	}
 	log.Printf("Registered POST /ingredients")
 

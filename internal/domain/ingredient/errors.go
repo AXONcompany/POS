@@ -7,4 +7,5 @@ var (
 	ErrNegativeStock = errors.New("ingredient stock value cannot be negative")
 	ErrNotFound      = errors.New("ingredient not found")
 	ErrAlreadyExists = errors.New("ingredient already exists")
+	ErrInvalidID     = errors.New("id cannot be zero or negative")
 )
