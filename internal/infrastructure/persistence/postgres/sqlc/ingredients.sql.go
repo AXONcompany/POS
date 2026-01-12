@@ -122,6 +122,7 @@ set
   ingredient_name = $2,
   unit_of_measure = $3,
   ingredient_type = $4,
+  stock = $5,
   updated_at = now()
 where id = $1 and deleted_at is null
 returning id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
@@ -132,6 +133,7 @@ type UpdateIngredientParams struct {
 	IngredientName string `json:"ingredient_name"`
 	UnitOfMeasure  string `json:"unit_of_measure"`
 	IngredientType string `json:"ingredient_type"`
+	Stock          int64  `json:"stock"`
 }
 
 func (q *Queries) UpdateIngredient(ctx context.Context, arg UpdateIngredientParams) (Ingredient, error) {
@@ -140,6 +142,7 @@ func (q *Queries) UpdateIngredient(ctx context.Context, arg UpdateIngredientPara
 		arg.IngredientName,
 		arg.UnitOfMeasure,
 		arg.IngredientType,
+		arg.Stock,
 	)
 	var i Ingredient
 	err := row.Scan(

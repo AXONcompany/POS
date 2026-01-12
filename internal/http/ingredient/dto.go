@@ -8,10 +8,10 @@ type CreateIngredientRequest struct {
 }
 
 type UpdateIngredientRequest struct {
-	Name          string `json:"name"`
-	UnitOfMeasure string `json:"unit_of_measure"`
-	Type          string `json:"type"`
-	Stock         int64  `json:"stock"`
+	Name          *string `json:"name"`
+	UnitOfMeasure *string `json:"unit_of_measure"`
+	Type          *string `json:"type"`
+	Stock         *int64  `json:"stock"`
 }
 
 type IngredientResponse struct {

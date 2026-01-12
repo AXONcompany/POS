@@ -75,3 +75,45 @@ func (s *IngredientService) GetAllIngredients(ctxt context.Context, page, pageSi
 	}
 	return s.repo.GetAllIngredients(ctxt, page, pageSize)
 }
+
+func (s *IngredientService) UpdateIngredient(ctxt context.Context, id int64, updates ingredient.IngredientUpdates) (*ingredient.Ingredient, error) {
+	if id <= 0 {
+		return nil, ingredient.ErrInvalidID
+	}
+
+	current, err := s.GetIngredient(ctxt, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if updates.Name != nil {
+		if *updates.Name == "" {
+			return nil, ingredient.ErrNameEmpty
+		}
+		current.Name = *updates.Name
+	}
+	if updates.UnitOfMeasure != nil {
+		current.UnitOfMeasure = *updates.UnitOfMeasure
+	}
+	if updates.IngredientType != nil {
+		current.IngredientType = *updates.IngredientType
+	}
+	if updates.Stock != nil {
+		if *updates.Stock < 0 {
+			return nil, ingredient.ErrNegativeStock
+		}
+		current.Stock = *updates.Stock
+	}
+
+	current.ID = id
+
+	updated, err := s.repo.UpdateIngredient(ctxt, *current)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ingredient.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to update ingredient: %w", err)
+	}
+
+	return &updated, nil
+}

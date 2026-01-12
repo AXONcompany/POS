@@ -96,6 +96,7 @@ func (r *IngredientRepository) UpdateIngredient(ctx context.Context, ing ingredi
 			IngredientName: ing.Name,
 			UnitOfMeasure:  ing.UnitOfMeasure,
 			IngredientType: ing.IngredientType,
+			Stock:          ing.Stock,
 		},
 	)
 

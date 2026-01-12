@@ -15,3 +15,11 @@ type Ingredient struct {
 	UpdatedAt *time.Time
 	DeletedAt *time.Time
 }
+
+// IngredientUpdates representa actualizaciones parciales
+type IngredientUpdates struct {
+	Name           *string
+	UnitOfMeasure  *string
+	IngredientType *string
+	Stock          *int64
+}

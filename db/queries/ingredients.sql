@@ -25,6 +25,7 @@ set
   ingredient_name = $2,
   unit_of_measure = $3,
   ingredient_type = $4,
+  stock = $5,
   updated_at = now()
 where id = $1 and deleted_at is null
 returning id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock;
