@@ -10,7 +10,9 @@ import (
 
 	appcfg "github.com/AXONcompany/POS/internal/config"
 	apphttp "github.com/AXONcompany/POS/internal/http"
+	"github.com/AXONcompany/POS/internal/http/ingredient"
 	apppg "github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres"
+	"github.com/AXONcompany/POS/internal/usecase"
 )
 
 func main() {
@@ -26,7 +28,17 @@ func main() {
 	}
 	defer db.Close()
 
-	router := apphttp.NewRouter(cfg)
+	// Repository
+	ingredientRepo := apppg.NewIngredientRepository(db)
+
+	// Service
+	ingredientService := usecase.NewIngredientService(ingredientRepo)
+
+	// Handler
+	ingredientHandler := ingredient.NewIngredientHandler(ingredientService)
+
+	// Router
+	router := apphttp.NewRouter(cfg, ingredientHandler)
 
 	srv := &http.Server{
 		Addr:         cfg.GetHTTPAddr(),

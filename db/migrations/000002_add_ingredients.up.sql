@@ -1,14 +1,4 @@
--- Initial schema based on current domain entities (User, Category, Product, Order, Table)
-
-create table if not exists users (
-  id bigserial primary key,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  deleted_at timestamptz null,
-
-  email text not null unique,
-  password text not null
-);
+-- Add ingredients table
 
 create table if not exists ingredients (
   id bigserial primary key,
@@ -21,3 +11,5 @@ create table if not exists ingredients (
   ingredient_type varchar(24) not null,
   stock bigint not null default 0
 );
+
+create index if not exists idx_ingredients_deleted_at on ingredients(deleted_at);

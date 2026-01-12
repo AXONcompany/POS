@@ -17,19 +17,19 @@ services:
       retries: 10
     restart: unless-stopped
 
-migrate:
-  image: axoncompany/pos_migrate:v1
-  container_name: pos_migrate
-  depends_on:
-    db:
-      condition: service_healthy
-  entrypoint:
-    - migrate
-    - -path=/migrations
-    - -database
-    - postgres://${DB_USER}:${DB_PASSWORD}@${MIGRATE_HOST:-db}:${MIGRATE_PORT:-5432}/${DB_NAME}?sslmode=${DB_SSLMODE:-disable}
-  command: ["up"]
-  restart: "no"
+  migrate:
+    image: axoncompany/pos_migrate:v1
+    container_name: pos_migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint:
+      - migrate
+      - -path=/migrations
+      - -database
+      - postgres://${DB_USER}:${DB_PASSWORD}@${MIGRATE_HOST:-db}:${MIGRATE_PORT:-5432}/${DB_NAME}?sslmode=${DB_SSLMODE:-disable}
+    command: ["up"]
+    restart: "no"
 
   app:
     image: axoncompany/pos_axon:v1

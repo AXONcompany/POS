@@ -1,4 +1,4 @@
--- Schema snapshot for sqlc (keep in sync with migrations)
+-- Schema snapshot
 
 create table if not exists users (
   id bigserial primary key,
@@ -19,45 +19,14 @@ create table if not exists categories (
   category_name text not null
 );
 
-create table if not exists products (
+create table if not exists ingredients (
   id bigserial primary key,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz null,
 
-  name text not null,
-  price numeric(12,2) not null default 0,
-  notes text not null default '',
-  category_id bigint not null references categories(id)
-);
-
-create table if not exists orders (
-  id bigserial primary key,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  deleted_at timestamptz null,
-
-  order_date timestamptz not null default now(),
-  total numeric(12,2) not null default 0,
-  client text not null default ''
-);
-
-create table if not exists tables (
-  id bigserial primary key,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  deleted_at timestamptz null,
-
-  number int not null,
-  capacity int not null,
-  is_available boolean not null default true,
-  occupied_at timestamptz null,
-  released_at timestamptz null,
-  order_id bigint null references orders(id)
-);
-
-create table if not exists order_products (
-  order_id bigint not null references orders(id) on delete cascade,
-  product_id bigint not null references products(id),
-  primary key (order_id, product_id)
+  ingredient_name varchar(124) not null,
+  unit_of_measure varchar(8) not null,
+  ingredient_type varchar(24) not null,
+  stock bigint not null default 0
 );
