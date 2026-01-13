@@ -30,6 +30,7 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 		ingredients.POST("", ingredientHandler.Create)
 		ingredients.GET("/:id", ingredientHandler.GetByID)
 		ingredients.PUT("/:id", ingredientHandler.Update)
+		ingredients.DELETE("/:id", ingredientHandler.Delete)
 	}
 	log.Printf("Registered POST /ingredients")
 

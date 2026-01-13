@@ -114,3 +114,19 @@ func (h *IngredientHandler) GetAll(c *gin.Context) {
 		"page_size": pageSize,
 	})
 }
+
+func (h *IngredientHandler) Delete(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	err = h.service.DeleteIngredient(c, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, nil)
+}

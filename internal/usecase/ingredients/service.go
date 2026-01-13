@@ -117,3 +117,12 @@ func (s *IngredientService) UpdateIngredient(ctxt context.Context, id int64, upd
 
 	return &updated, nil
 }
+
+func (s *IngredientService) DeleteIngredient(ctx context.Context, id int64) error {
+
+	if id <= 0 {
+		return ingredient.ErrInvalidID
+	}
+
+	return s.repo.DeleteIngredient(ctx, id)
+}
