@@ -1,40 +1,78 @@
 package main
 
 import (
+	"context"
 	"log"
-	"os"
-	"github.com/joho/godotenv"
-	"github.com/AXONcompany/POS/internal/infrastructure/perisistence/postgres"
+	"net/http"
+	"os/signal"
+	"syscall"
+	"time"
+
+	appcfg "github.com/AXONcompany/POS/internal/config"
+	apphttp "github.com/AXONcompany/POS/internal/http"
+	httping "github.com/AXONcompany/POS/internal/http/ingredient" //http ingredient
+	apppg "github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres"
+	uing "github.com/AXONcompany/POS/internal/usecase/ingredients" //usecase ingredient
 )
 
+func main() {
 
-func loadVariable(key string)string{
-	err := godotenv.Load()
-	if err != nil{
-		log.Fatalf("Error loading .env file")
+	cfg, err := appcfg.Load()
+	if err != nil {
+		log.Fatalf("config error: %v", err)
 	}
 
-	return os.Getenv(key)
-}
+	db, err := apppg.Connect(context.Background(), cfg)
+	if err != nil {
+		log.Fatalf("db error: %v", err)
+	}
+	defer db.Close()
 
-func main(){
+	// Repository
+	ingredientRepo := apppg.NewIngredientRepository(db)
 
-	DB_NAME := loadVariable("DB_NAME")
-	DB_PASS := loadVariable("DB_PASSWORD")
-	DB_HOST := loadVariable("DB_HOST")
-	DB_USER := loadVariable("DB_USER")
-	DB_PORT := loadVariable("DB_PORT")
+	// Service
+	ingredientService := uing.NewIngredientService(ingredientRepo)
 
-	err := postgres.Connect(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT)
-	err2 := postgres.Migrate()
+	// Handler
+	ingredientHandler := httping.NewIngredientHandler(ingredientService)
 
-	if err != nil{
-		panic("error connecting to database"+err.Error())
+	// Router
+	router := apphttp.NewRouter(cfg, ingredientHandler)
+
+	srv := &http.Server{
+		Addr:         cfg.GetHTTPAddr(),
+		Handler:      router,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		IdleTimeout:  cfg.IdleTimeout,
 	}
 
-	if err2 != nil{
-		panic("error connecting to database" + err2.Error())
+	go func() {
+		log.Printf("server starting on %s (env=%s)", cfg.GetHTTPAddr(), cfg.Env)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen error: %v", err)
+		}
+	}()
+
+	stopCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	<-stopCtx.Done()
+
+	log.Printf("server shutting down...")
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("shutdown error: %v", err)
 	}
 
+	shutdownTimer := time.NewTimer(250 * time.Millisecond)
+	defer shutdownTimer.Stop()
+	select {
+	case <-ctx.Done():
+	case <-shutdownTimer.C:
+	}
+	log.Printf("server stopped")
 
 }

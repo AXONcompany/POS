@@ -1,0 +1,9 @@
+.git
+.gitignore
+**/*.md
+**/*_test.go
+**/.DS_Store
+**/*.log
+bin/
+out/
+tmp/

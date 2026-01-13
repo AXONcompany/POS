@@ -78,7 +78,7 @@ pos-backend/
 |------------|------------|
 | Lenguaje | Go 1.23+ |
 | Framework HTTP | Gin |
-| ORM / SQL builder |sqlx |
+| sqlc / SQL builder |sqlx |
 | Base de datos | PostgreSQL |
 | Mensajería | RabbitMQ / NATS |
 | Auth | JWT con HMAC / RSA |
