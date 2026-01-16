@@ -16,7 +16,7 @@ create table if not exists waitress(
 );
 
 create table if not exists tables(
-  id_table bigserial primary key,
+  id bigserial primary key,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz null,
