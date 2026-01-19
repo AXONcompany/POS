@@ -26,6 +26,7 @@ type Querier interface {
 	ListWaitresses(ctx context.Context) ([]int64, error)
 	RemoveWaitressFromTable(ctx context.Context, tableID int64) error
 	UpdateIngredient(ctx context.Context, arg UpdateIngredientParams) (Ingredient, error)
+	UpdateTable(ctx context.Context, arg UpdateTableParams) error
 	UpdateTableStatus(ctx context.Context, arg UpdateTableStatusParams) (Table, error)
 }
 

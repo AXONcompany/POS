@@ -170,6 +170,38 @@ func (q *Queries) RemoveWaitressFromTable(ctx context.Context, tableID int64) er
 	return err
 }
 
+const updateTable = `-- name: UpdateTable :exec
+UPDATE tables
+SET 
+    -- COALESCE significa: "Si el primer valor es nulo, usa el segundo"
+    -- sqlc.narg() permite pasar nulos desde Go
+    table_number = COALESCE($1, table_number),
+    capacity     = COALESCE($2, capacity),
+    status       = COALESCE($3, status),
+    arrival_time = COALESCE($4, arrival_time),
+    updated_at   = now()
+WHERE id = $5
+`
+
+type UpdateTableParams struct {
+	TableNumber pgtype.Int4        `json:"table_number"`
+	Capacity    pgtype.Int4        `json:"capacity"`
+	Status      pgtype.Text        `json:"status"`
+	ArrivalTime pgtype.Timestamptz `json:"arrival_time"`
+	ID          int64              `json:"id"`
+}
+
+func (q *Queries) UpdateTable(ctx context.Context, arg UpdateTableParams) error {
+	_, err := q.db.Exec(ctx, updateTable,
+		arg.TableNumber,
+		arg.Capacity,
+		arg.Status,
+		arg.ArrivalTime,
+		arg.ID,
+	)
+	return err
+}
+
 const updateTableStatus = `-- name: UpdateTableStatus :one
 UPDATE tables
 SET status = $2, arrival_time = $3, updated_at = now()
