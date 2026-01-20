@@ -21,24 +21,18 @@ func NewHandler(s *usecase.Service) *Handler {
 func (h *Handler) Create(c *gin.Context) {
 	var req CreateTableRequest
 
-	// 1. Bind & Validar (DTO)
-	// Gin revisa los tags `binding:"required,gt=0"` del DTO automáticamente aquí
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos inválidos: " + err.Error()})
 		return
 	}
 
-	// 2. Mapear (DTO -> Dominio)
 	domainTable := ToDomain(req)
 
-	// 3. Llamar al Servicio
 	if err := h.service.Create(c.Request.Context(), domainTable); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 4. Responder (Dominio -> DTO Response)
-	// Respondemos con la mesa creada, incluyendo su nuevo ID y Fecha
 	c.JSON(http.StatusCreated, ToResponse(domainTable))
 }
 
@@ -50,7 +44,6 @@ func (h *Handler) GetAll(c *gin.Context) {
 		return
 	}
 
-	// Usamos el helper de listas del mapper
 	c.JSON(http.StatusOK, ToResponseList(tables))
 }
 
@@ -85,7 +78,6 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	// Convertimos el DTO de updates (punteros) al dominio
 	updates := ToUpdateDomain(req)
 
 	if err := h.service.Update(c.Request.Context(), id, updates); err != nil {
