@@ -75,8 +75,8 @@ func (h *IngredientHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// Convertir DTO a IngredientUpdates del dominio
-	updates := ding.IngredientUpdates{
+	// Convertir DTO a PartialIngredient del dominio
+	updates := ding.PartialIngredient{
 		Name:           req.Name,
 		UnitOfMeasure:  req.UnitOfMeasure,
 		IngredientType: req.Type,

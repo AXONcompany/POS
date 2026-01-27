@@ -76,7 +76,7 @@ func (s *IngredientService) GetAllIngredients(ctxt context.Context, page, pageSi
 	return s.repo.GetAllIngredients(ctxt, page, pageSize)
 }
 
-func (s *IngredientService) UpdateIngredient(ctxt context.Context, id int64, updates ingredient.IngredientUpdates) (*ingredient.Ingredient, error) {
+func (s *IngredientService) UpdateIngredient(ctxt context.Context, id int64, updates ingredient.PartialIngredient) (*ingredient.Ingredient, error) {
 	if id <= 0 {
 		return nil, ingredient.ErrInvalidID
 	}
