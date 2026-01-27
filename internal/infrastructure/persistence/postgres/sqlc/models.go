@@ -27,6 +27,35 @@ type Ingredient struct {
 	Stock          int64              `json:"stock"`
 }
 
+type Product struct {
+	ID          int64              `json:"id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
+	ProductName string             `json:"product_name"`
+	SalesPrice  pgtype.Numeric     `json:"sales_price"`
+	IsActive    bool               `json:"is_active"`
+}
+
+type ProductCategory struct {
+	ID         int64              `json:"id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
+	ProductID  int64              `json:"product_id"`
+	CategoryID int64              `json:"category_id"`
+}
+
+type Recipe struct {
+	ID               int64              `json:"id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
+	ProductID        int64              `json:"product_id"`
+	IngredientID     int64              `json:"ingredient_id"`
+	QuantityRequired pgtype.Numeric     `json:"quantity_required"`
+}
+
 type User struct {
 	ID        int64              `json:"id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
