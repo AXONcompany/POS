@@ -34,3 +34,9 @@ returning id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measu
 update ingredients
 set deleted_at = now()
 where id = $1 and deleted_at is null;
+
+-- name: ListAllIngredients :many
+select id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
+from ingredients
+where deleted_at is null
+order by ingredient_name;

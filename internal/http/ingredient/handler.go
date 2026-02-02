@@ -75,8 +75,8 @@ func (h *IngredientHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// Convertir DTO a IngredientUpdates del dominio
-	updates := ding.IngredientUpdates{
+	// Convertir DTO a PartialIngredient del dominio
+	updates := ding.PartialIngredient{
 		Name:           req.Name,
 		UnitOfMeasure:  req.UnitOfMeasure,
 		IngredientType: req.Type,
@@ -129,4 +129,22 @@ func (h *IngredientHandler) Delete(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusNoContent, nil)
+}
+
+func (h *IngredientHandler) GetInventoryReport(c *gin.Context) {
+	ings, err := h.service.GetInventoryReport(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	response := make([]IngredientResponse, len(ings))
+	for i, ing := range ings {
+		response[i] = toIngredientResponse(&ing)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":  response,
+		"count": len(response),
+	})
 }

@@ -15,6 +15,7 @@ type IngredientRepository interface {
 	GetAllIngredients(ctx context.Context, page, pageSize int) ([]ingredient.Ingredient, error)
 	UpdateIngredient(ctx context.Context, ing ingredient.Ingredient) (ingredient.Ingredient, error)
 	DeleteIngredient(ctx context.Context, id int64) error
+	GetAllInventory(ctx context.Context) ([]ingredient.Ingredient, error)
 }
 
 type IngredientService struct {
@@ -76,7 +77,7 @@ func (s *IngredientService) GetAllIngredients(ctxt context.Context, page, pageSi
 	return s.repo.GetAllIngredients(ctxt, page, pageSize)
 }
 
-func (s *IngredientService) UpdateIngredient(ctxt context.Context, id int64, updates ingredient.IngredientUpdates) (*ingredient.Ingredient, error) {
+func (s *IngredientService) UpdateIngredient(ctxt context.Context, id int64, updates ingredient.PartialIngredient) (*ingredient.Ingredient, error) {
 	if id <= 0 {
 		return nil, ingredient.ErrInvalidID
 	}
@@ -125,4 +126,8 @@ func (s *IngredientService) DeleteIngredient(ctx context.Context, id int64) erro
 	}
 
 	return s.repo.DeleteIngredient(ctx, id)
+}
+
+func (s *IngredientService) GetInventoryReport(ctx context.Context) ([]ingredient.Ingredient, error) {
+	return s.repo.GetAllInventory(ctx)
 }

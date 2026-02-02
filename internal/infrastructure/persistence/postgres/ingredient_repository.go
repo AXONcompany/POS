@@ -107,3 +107,16 @@ func (r *IngredientRepository) UpdateIngredient(ctx context.Context, ing ingredi
 	return toDomainIngredient(row), nil
 
 }
+
+func (r *IngredientRepository) GetAllInventory(ctx context.Context) ([]ingredient.Ingredient, error) {
+	rows, err := r.q.ListAllIngredients(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]ingredient.Ingredient, len(rows))
+	for i := range rows {
+		items[i] = toDomainIngredient(rows[i])
+	}
+	return items, nil
+}

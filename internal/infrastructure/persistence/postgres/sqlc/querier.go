@@ -9,11 +9,25 @@ import (
 )
 
 type Querier interface {
+	AddRecipeItem(ctx context.Context, arg AddRecipeItemParams) (Recipe, error)
+	CreateCategory(ctx context.Context, categoryName string) (Category, error)
 	CreateIngredient(ctx context.Context, arg CreateIngredientParams) (Ingredient, error)
+	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
+	DeleteCategory(ctx context.Context, id int64) error
 	DeleteIngredient(ctx context.Context, id int64) error
+	DeleteProduct(ctx context.Context, id int64) error
+	DeleteRecipeItem(ctx context.Context, id int64) error
+	GetCategory(ctx context.Context, id int64) (Category, error)
 	GetIngredientByID(ctx context.Context, id int64) (Ingredient, error)
+	GetProduct(ctx context.Context, id int64) (Product, error)
+	GetRecipeByProductID(ctx context.Context, productID int64) ([]GetRecipeByProductIDRow, error)
+	ListAllIngredients(ctx context.Context) ([]Ingredient, error)
+	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error)
 	ListIngredients(ctx context.Context, arg ListIngredientsParams) ([]Ingredient, error)
+	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
+	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateIngredient(ctx context.Context, arg UpdateIngredientParams) (Ingredient, error)
+	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
 }
 
 var _ Querier = (*Queries)(nil)
