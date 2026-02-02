@@ -11,8 +11,10 @@ import (
 	appcfg "github.com/AXONcompany/POS/internal/config"
 	apphttp "github.com/AXONcompany/POS/internal/http"
 	httping "github.com/AXONcompany/POS/internal/http/ingredient" //http ingredient
+	httpproduct "github.com/AXONcompany/POS/internal/http/product"
 	apppg "github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres"
 	uing "github.com/AXONcompany/POS/internal/usecase/ingredients" //usecase ingredient
+	uproducts "github.com/AXONcompany/POS/internal/usecase/products"
 )
 
 func main() {
@@ -30,15 +32,20 @@ func main() {
 
 	// Repository
 	ingredientRepo := apppg.NewIngredientRepository(db)
+	productRepo := apppg.NewProductRepository(db)
+	categoryRepo := apppg.NewCategoryRepository(db)
+	recipeRepo := apppg.NewRecipeRepository(db)
 
 	// Service
 	ingredientService := uing.NewIngredientService(ingredientRepo)
+	productService := uproducts.NewService(productRepo, categoryRepo, recipeRepo)
 
 	// Handler
 	ingredientHandler := httping.NewIngredientHandler(ingredientService)
+	productHandler := httpproduct.NewHandler(productService)
 
 	// Router
-	router := apphttp.NewRouter(cfg, ingredientHandler)
+	router := apphttp.NewRouter(cfg, ingredientHandler, productHandler)
 
 	srv := &http.Server{
 		Addr:         cfg.GetHTTPAddr(),

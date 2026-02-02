@@ -130,3 +130,21 @@ func (h *IngredientHandler) Delete(c *gin.Context) {
 
 	c.JSON(http.StatusNoContent, nil)
 }
+
+func (h *IngredientHandler) GetInventoryReport(c *gin.Context) {
+	ings, err := h.service.GetInventoryReport(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	response := make([]IngredientResponse, len(ings))
+	for i, ing := range ings {
+		response[i] = toIngredientResponse(&ing)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":  response,
+		"count": len(response),
+	})
+}

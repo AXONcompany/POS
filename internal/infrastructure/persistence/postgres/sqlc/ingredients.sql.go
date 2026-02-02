@@ -74,6 +74,42 @@ func (q *Queries) GetIngredientByID(ctx context.Context, id int64) (Ingredient, 
 	return i, err
 }
 
+const listAllIngredients = `-- name: ListAllIngredients :many
+select id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
+from ingredients
+where deleted_at is null
+order by ingredient_name
+`
+
+func (q *Queries) ListAllIngredients(ctx context.Context) ([]Ingredient, error) {
+	rows, err := q.db.Query(ctx, listAllIngredients)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Ingredient{}
+	for rows.Next() {
+		var i Ingredient
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.IngredientName,
+			&i.UnitOfMeasure,
+			&i.IngredientType,
+			&i.Stock,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIngredients = `-- name: ListIngredients :many
 select id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
 from ingredients

@@ -15,6 +15,7 @@ type IngredientRepository interface {
 	GetAllIngredients(ctx context.Context, page, pageSize int) ([]ingredient.Ingredient, error)
 	UpdateIngredient(ctx context.Context, ing ingredient.Ingredient) (ingredient.Ingredient, error)
 	DeleteIngredient(ctx context.Context, id int64) error
+	GetAllInventory(ctx context.Context) ([]ingredient.Ingredient, error)
 }
 
 type IngredientService struct {
@@ -125,4 +126,8 @@ func (s *IngredientService) DeleteIngredient(ctx context.Context, id int64) erro
 	}
 
 	return s.repo.DeleteIngredient(ctx, id)
+}
+
+func (s *IngredientService) GetInventoryReport(ctx context.Context) ([]ingredient.Ingredient, error) {
+	return s.repo.GetAllInventory(ctx)
 }
