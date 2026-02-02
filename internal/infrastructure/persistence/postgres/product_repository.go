@@ -9,11 +9,15 @@ import (
 )
 
 type ProductRepository struct {
-	q *sqlc.Queries
+	q  *sqlc.Queries
+	db *DB
 }
 
 func NewProductRepository(db *DB) *ProductRepository {
-	return &ProductRepository{q: sqlc.New(db.Pool)}
+	return &ProductRepository{
+		q:  sqlc.New(db.Pool),
+		db: db,
+	}
 }
 
 func toDomainProduct(p sqlc.Product) product.Product {
@@ -90,4 +94,43 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p product.Product
 
 func (r *ProductRepository) DeleteProduct(ctx context.Context, id int64) error {
 	return r.q.DeleteProduct(ctx, id)
+}
+
+func (r *ProductRepository) CreateProductWithRecipe(ctx context.Context, p product.Product, items []product.RecipeItem) (*product.Product, error) {
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := r.q.WithTx(tx)
+
+	// 1. Create Product
+	prodRow, err := qtx.CreateProduct(ctx, sqlc.CreateProductParams{
+		ProductName: p.Name,
+		SalesPrice:  floatToNumeric(p.SalesPrice),
+		IsActive:    p.IsActive,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Create Recipe Items
+	for _, item := range items {
+		_, err := qtx.AddRecipeItem(ctx, sqlc.AddRecipeItemParams{
+			ProductID:        prodRow.ID,
+			IngredientID:     item.IngredientID,
+			QuantityRequired: floatToNumeric(item.QuantityRequired),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	res := toDomainProduct(prodRow)
+	return &res, nil
 }

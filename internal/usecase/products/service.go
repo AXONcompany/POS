@@ -15,6 +15,7 @@ type ProductRepository interface {
 	GetAllProducts(ctx context.Context, page, pageSize int) ([]product.Product, error)
 	UpdateProduct(ctx context.Context, p product.Product) (*product.Product, error)
 	DeleteProduct(ctx context.Context, id int64) error
+	CreateProductWithRecipe(ctx context.Context, p product.Product, items []product.RecipeItem) (*product.Product, error)
 }
 
 type CategoryRepository interface {
@@ -209,4 +210,26 @@ func (s *Service) GetProductIngredients(ctx context.Context, productID int64) ([
 		return nil, product.ErrInvalidID
 	}
 	return s.recipeRepo.GetByProductID(ctx, productID)
+}
+
+// Menu Methods
+
+func (s *Service) CreateMenuItem(ctx context.Context, name string, price float64, ingredients []product.RecipeItem) (*product.Product, error) {
+	if name == "" {
+		return nil, product.ErrNameEmpty
+	}
+	if price < 0 {
+		return nil, product.ErrPriceNegative
+	}
+	if len(ingredients) == 0 {
+		return nil, errors.New("menu item must have at least one ingredient")
+	}
+
+	prod := product.Product{
+		Name:       name,
+		SalesPrice: price,
+		IsActive:   true,
+	}
+
+	return s.productRepo.CreateProductWithRecipe(ctx, prod, ingredients)
 }

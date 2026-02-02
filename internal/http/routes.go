@@ -51,6 +51,14 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 		products.GET("/:id/ingredients", productHandler.GetIngredients)
 	}
 
-	log.Printf("Registered POST /ingredients, /categories, /products")
+	// Menu
+	menu := r.Group("/menu")
+	{
+		menu.GET("", productHandler.GetMenu)
+		menu.POST("", productHandler.CreateMenuItem)
+		menu.PATCH("/:id", productHandler.UpdateMenuItem)
+	}
+
+	log.Printf("Registered POST /ingredients, /categories, /products, /menu")
 
 }

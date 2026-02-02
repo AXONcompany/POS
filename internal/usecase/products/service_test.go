@@ -51,6 +51,14 @@ func (m *MockProductRepo) DeleteProduct(ctx context.Context, id int64) error {
 	return args.Error(0)
 }
 
+func (m *MockProductRepo) CreateProductWithRecipe(ctx context.Context, p product.Product, items []product.RecipeItem) (*product.Product, error) {
+	args := m.Called(ctx, p, items)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*product.Product), args.Error(1)
+}
+
 type MockCategoryRepo struct {
 	mock.Mock
 }
@@ -255,4 +263,51 @@ func TestUpdateProduct_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, updatedName, result.Name)
 	mockRepo.AssertExpectations(t)
+}
+
+func TestCreateMenuItem_Success(t *testing.T) {
+	mockRepo := new(MockProductRepo)
+	service := NewService(mockRepo, nil, nil)
+	ctx := context.Background()
+
+	name := "Special Burger"
+	price := 15.0
+	ingredients := []product.RecipeItem{
+		{IngredientID: 1, QuantityRequired: 2},
+		{IngredientID: 2, QuantityRequired: 1},
+	}
+
+	expected := &product.Product{ID: 1, Name: name, SalesPrice: price, IsActive: true}
+
+	mockRepo.On("CreateProductWithRecipe", ctx, product.Product{
+		Name:       name,
+		SalesPrice: price,
+		IsActive:   true,
+	}, ingredients).Return(expected, nil)
+
+	result, err := service.CreateMenuItem(ctx, name, price, ingredients)
+
+	assert.NoError(t, err)
+	assert.Equal(t, expected, result)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestCreateMenuItem_Validation(t *testing.T) {
+	mockRepo := new(MockProductRepo)
+	service := NewService(mockRepo, nil, nil)
+	ctx := context.Background()
+
+	// Empty Name
+	_, err := service.CreateMenuItem(ctx, "", 10, []product.RecipeItem{{IngredientID: 1}})
+	assert.ErrorIs(t, err, product.ErrNameEmpty)
+
+	// Negative Price
+	_, err = service.CreateMenuItem(ctx, "Burger", -5, []product.RecipeItem{{IngredientID: 1}})
+	assert.ErrorIs(t, err, product.ErrPriceNegative)
+
+	// No Ingredients
+	_, err = service.CreateMenuItem(ctx, "Burger", 10, nil)
+	assert.ErrorContains(t, err, "menu item must have at least one ingredient")
+
+	mockRepo.AssertNotCalled(t, "CreateProductWithRecipe")
 }
