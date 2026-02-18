@@ -1,11 +1,11 @@
 package product
 
-import (
-	"gorm.io/gorm"
-)
+import "time"
 
 type Category struct {
-	gorm.Model
-	CategoryName string
-	Products []*Product  `gorm:"foreignKey:CategoryID"`
+	ID        int64
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt *time.Time
+	DeletedAt *time.Time
 }
