@@ -46,8 +46,6 @@ func main() {
 	userRepo := apppg.NewUserRepository(db)
 	sessionRepo := apppg.NewSessionRepository(db)
 
-	// Since order repository wasn't fully mocked with SQLC in this session, we leave it nil or mock it
-	// for the sake of the compiler passing (the task was specifically focused on POS user management bounds)
 	var orderRepo *apppg.OrderRepository // Requires order postgres implementation
 
 	// Service / Usecase
