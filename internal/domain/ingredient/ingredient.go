@@ -16,8 +16,7 @@ type Ingredient struct {
 	DeletedAt *time.Time
 }
 
-// IngredientUpdates representa actualizaciones parciales
-type IngredientUpdates struct {
+type PartialIngredient struct {
 	Name           *string
 	UnitOfMeasure  *string
 	IngredientType *string

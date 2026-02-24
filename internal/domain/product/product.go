@@ -1,12 +1,13 @@
 package product
 
-import "gorm.io/gorm"
+import "time"
 
-
-type Product struct{
-	gorm.Model
-    Name string
-    Price float64
-    Notes string   
-    CategoryID uint 
-} 
+type Product struct {
+	ID         int64
+	Name       string
+	SalesPrice float64
+	IsActive   bool
+	CreatedAt  time.Time
+	UpdatedAt  *time.Time
+	DeletedAt  *time.Time
+}

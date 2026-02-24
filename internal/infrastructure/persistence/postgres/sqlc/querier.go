@@ -9,28 +9,25 @@ import (
 )
 
 type Querier interface {
-	// Cambiado: id -> id_table
-	// SECCION: Asignación de Mesas (Table Waitress) --
-	AssignWaitressToTable(ctx context.Context, arg AssignWaitressToTableParams) (TableWaitress, error)
+	AddRecipeItem(ctx context.Context, arg AddRecipeItemParams) (Recipe, error)
+	CreateCategory(ctx context.Context, categoryName string) (Category, error)
 	CreateIngredient(ctx context.Context, arg CreateIngredientParams) (Ingredient, error)
-	CreateTable(ctx context.Context, arg CreateTableParams) (Table, error)
-	CreateWaitress(ctx context.Context, idUser int64) (int64, error)
+	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
+	DeleteCategory(ctx context.Context, id int64) error
 	DeleteIngredient(ctx context.Context, id int64) error
-	// Cambiado: id -> id_table
-	DeleteTable(ctx context.Context, idTable int64) error
-	DeleteWaitress(ctx context.Context, idUser int64) error
+	DeleteProduct(ctx context.Context, id int64) error
+	DeleteRecipeItem(ctx context.Context, id int64) error
+	GetCategory(ctx context.Context, id int64) (Category, error)
 	GetIngredientByID(ctx context.Context, id int64) (Ingredient, error)
-	GetTable(ctx context.Context, idTable int64) (Table, error)
-	GetWaitress(ctx context.Context, idUser int64) (int64, error)
-	GetWaitressByTable(ctx context.Context, tableID int64) (TableWaitress, error)
+	GetProduct(ctx context.Context, id int64) (Product, error)
+	GetRecipeByProductID(ctx context.Context, productID int64) ([]GetRecipeByProductIDRow, error)
+	ListAllIngredients(ctx context.Context) ([]Ingredient, error)
+	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error)
 	ListIngredients(ctx context.Context, arg ListIngredientsParams) ([]Ingredient, error)
-	ListTables(ctx context.Context) ([]Table, error)
-	ListWaitresses(ctx context.Context) ([]int64, error)
-	RemoveWaitressFromTable(ctx context.Context, tableID int64) error
+	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
+	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateIngredient(ctx context.Context, arg UpdateIngredientParams) (Ingredient, error)
-	UpdateTable(ctx context.Context, arg UpdateTableParams) error
-	// Cambiado: id -> id_table
-	UpdateTableStatus(ctx context.Context, arg UpdateTableStatusParams) (Table, error)
+	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
 }
 
 var _ Querier = (*Queries)(nil)

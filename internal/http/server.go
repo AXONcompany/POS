@@ -3,11 +3,11 @@ package http
 import (
 	"github.com/AXONcompany/POS/internal/config"
 	"github.com/AXONcompany/POS/internal/http/ingredient"
-	tableHttp "github.com/AXONcompany/POS/internal/http/table"
+	"github.com/AXONcompany/POS/internal/http/product"
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(cfg config.Config, ingredientHandler *ingredient.IngredientHandler, tableHandler *tableHttp.Handler) *gin.Engine {
+func NewRouter(cfg config.Config, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler) *gin.Engine {
 	if cfg.Env == "prod" {
 		gin.SetMode(gin.ReleaseMode)
 	} else {
@@ -19,7 +19,7 @@ func NewRouter(cfg config.Config, ingredientHandler *ingredient.IngredientHandle
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
-	RegisterRouters(r, ingredientHandler, tableHandler)
+	RegisterRouters(r, ingredientHandler, productHandler)
 	return r
 
 }

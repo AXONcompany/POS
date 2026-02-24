@@ -11,10 +11,10 @@ import (
 	appcfg "github.com/AXONcompany/POS/internal/config"
 	apphttp "github.com/AXONcompany/POS/internal/http"
 	httping "github.com/AXONcompany/POS/internal/http/ingredient" //http ingredient
-	tableHttp "github.com/AXONcompany/POS/internal/http/table"
+	httpproduct "github.com/AXONcompany/POS/internal/http/product"
 	apppg "github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres"
 	uing "github.com/AXONcompany/POS/internal/usecase/ingredients" //usecase ingredient
-	tableUsecase "github.com/AXONcompany/POS/internal/usecase/tables"
+	uproducts "github.com/AXONcompany/POS/internal/usecase/products"
 )
 
 func main() {
@@ -32,19 +32,24 @@ func main() {
 
 	// Repository
 	ingredientRepo := apppg.NewIngredientRepository(db)
+	productRepo := apppg.NewProductRepository(db)
+	categoryRepo := apppg.NewCategoryRepository(db)
+	recipeRepo := apppg.NewRecipeRepository(db)
 
 	// Service
 	ingredientService := uing.NewIngredientService(ingredientRepo)
+	productService := uproducts.NewService(productRepo, categoryRepo, recipeRepo)
 
 	// Handler
 	ingredientHandler := httping.NewIngredientHandler(ingredientService)
+	productHandler := httpproduct.NewHandler(productService)
 
 	tableRepo := apppg.NewTableRepository(db)
 	tableService := tableUsecase.NewService(tableRepo)
 	tableHandler := tableHttp.NewHandler(tableService)
 
 	// Router
-	router := apphttp.NewRouter(cfg, ingredientHandler, tableHandler)
+	router := apphttp.NewRouter(cfg, ingredientHandler, productHandler)
 
 	srv := &http.Server{
 		Addr:         cfg.GetHTTPAddr(),

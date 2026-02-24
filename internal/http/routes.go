@@ -5,11 +5,11 @@ import (
 	"net/http"
 
 	"github.com/AXONcompany/POS/internal/http/ingredient"
-	tableHttp "github.com/AXONcompany/POS/internal/http/table"
+	"github.com/AXONcompany/POS/internal/http/product"
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHandler, tableHandler *tableHttp.Handler) {
+func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler) {
 
 	log.Printf("RegisterRouters called, ingredientHandler is nil: %v", ingredientHandler == nil)
 
@@ -41,11 +41,37 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 	ingredients := r.Group("/ingredients")
 	{
 		ingredients.GET("", ingredientHandler.GetAll)
+		ingredients.GET("/report", ingredientHandler.GetInventoryReport)
 		ingredients.POST("", ingredientHandler.Create)
 		ingredients.GET("/:id", ingredientHandler.GetByID)
 		ingredients.PUT("/:id", ingredientHandler.Update)
 		ingredients.DELETE("/:id", ingredientHandler.Delete)
 	}
-	log.Printf("Registered POST /ingredients")
+
+	// Categories
+	categories := r.Group("/categories")
+	{
+		categories.POST("", productHandler.CreateCategory)
+		categories.GET("", productHandler.GetAllCategories)
+	}
+
+	// Products
+	products := r.Group("/products")
+	{
+		products.POST("", productHandler.CreateProduct)
+		products.GET("", productHandler.GetAllProducts)
+		products.POST("/:id/ingredients", productHandler.AddIngredient)
+		products.GET("/:id/ingredients", productHandler.GetIngredients)
+	}
+
+	// Menu
+	menu := r.Group("/menu")
+	{
+		menu.GET("", productHandler.GetMenu)
+		menu.POST("", productHandler.CreateMenuItem)
+		menu.PATCH("/:id", productHandler.UpdateMenuItem)
+	}
+
+	log.Printf("Registered POST /ingredients, /categories, /products, /menu")
 
 }

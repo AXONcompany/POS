@@ -27,24 +27,33 @@ type Ingredient struct {
 	Stock          int64              `json:"stock"`
 }
 
-type Table struct {
-	IDTable     int64              `json:"id_table"`
+type Product struct {
+	ID          int64              `json:"id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
-	TableNumber int32              `json:"table_number"`
-	Capacity    int32              `json:"capacity"`
-	Status      string             `json:"status"`
-	ArrivalTime pgtype.Timestamptz `json:"arrival_time"`
+	ProductName string             `json:"product_name"`
+	SalesPrice  pgtype.Numeric     `json:"sales_price"`
+	IsActive    bool               `json:"is_active"`
 }
 
-type TableWaitress struct {
+type ProductCategory struct {
 	ID         int64              `json:"id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
-	TableID    int64              `json:"table_id"`
-	WaitressID int64              `json:"waitress_id"`
+	ProductID  int64              `json:"product_id"`
+	CategoryID int64              `json:"category_id"`
+}
+
+type Recipe struct {
+	ID               int64              `json:"id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
+	ProductID        int64              `json:"product_id"`
+	IngredientID     int64              `json:"ingredient_id"`
+	QuantityRequired pgtype.Numeric     `json:"quantity_required"`
 }
 
 type User struct {
