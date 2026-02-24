@@ -56,6 +56,26 @@ type Recipe struct {
 	QuantityRequired pgtype.Numeric     `json:"quantity_required"`
 }
 
+type Table struct {
+	IDTable     int64              `json:"id_table"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
+	TableNumber int32              `json:"table_number"`
+	Capacity    int32              `json:"capacity"`
+	Status      string             `json:"status"`
+	ArrivalTime pgtype.Timestamptz `json:"arrival_time"`
+}
+
+type TableWaitress struct {
+	ID         int64              `json:"id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
+	TableID    int64              `json:"table_id"`
+	WaitressID int64              `json:"waitress_id"`
+}
+
 type User struct {
 	ID        int64              `json:"id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`

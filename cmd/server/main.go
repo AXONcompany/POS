@@ -12,9 +12,11 @@ import (
 	apphttp "github.com/AXONcompany/POS/internal/http"
 	httping "github.com/AXONcompany/POS/internal/http/ingredient" //http ingredient
 	httpproduct "github.com/AXONcompany/POS/internal/http/product"
+	tableHttp "github.com/AXONcompany/POS/internal/http/table"
 	apppg "github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres"
 	uing "github.com/AXONcompany/POS/internal/usecase/ingredients" //usecase ingredient
 	uproducts "github.com/AXONcompany/POS/internal/usecase/products"
+	tableUsecase "github.com/AXONcompany/POS/internal/usecase/tables"
 )
 
 func main() {
@@ -49,7 +51,7 @@ func main() {
 	tableHandler := tableHttp.NewHandler(tableService)
 
 	// Router
-	router := apphttp.NewRouter(cfg, ingredientHandler, productHandler)
+	router := apphttp.NewRouter(cfg, ingredientHandler, productHandler, tableHandler)
 
 	srv := &http.Server{
 		Addr:         cfg.GetHTTPAddr(),

@@ -6,10 +6,11 @@ import (
 
 	"github.com/AXONcompany/POS/internal/http/ingredient"
 	"github.com/AXONcompany/POS/internal/http/product"
+	"github.com/AXONcompany/POS/internal/http/table"
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler) {
+func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler, tableHandler *table.Handler) {
 
 	log.Printf("RegisterRouters called, ingredientHandler is nil: %v", ingredientHandler == nil)
 
