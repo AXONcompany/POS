@@ -20,11 +20,13 @@ Esto permite mantener el dominio desacoplado y fácilmente testeable.
 |  (Use cases / Services)   |                            |
 +---------------------------+-----------------------------+
 |           Domain Layer                                   |
-|   (Entities, Aggregates, Value Objects, Interfaces)      |
+|   (Entities, Aggregates, Value Objects)                  |
 +---------------------------------------------------------+
 |          Infrastructure Layer                            |
-|   (DB adapters, Repositories, External APIs, Logger)     |
+|   (DB adapters, REST Handlers, External APIs, Logger)    |
 +---------------------------------------------------------+
+
+*Nota sobre Segregación de Interfaces (effective-go)*: Fiel al principio de Go de "definir interfaces donde se usan y no donde se implementan", las interfaces de los Repositorios se encuentran localizadas dentro de la capa Application (`internal/usecase`) y la infraestructura (`internal/infrastructure/persistence`) se acopla implícitamente a ellas.
 ```
 
 ## Estructura de carpetas
@@ -48,14 +50,15 @@ pos-backend/
 │   │   ├── product_service.go
 │   │   └── user_service.go
 │   │
-│   ├── infrastructure/      # Adaptadores hacia sistemas externos
+│   ├── infrastructure/      # Adaptadores hacia sistemas y transporte externo
 │   │   ├── persistence/
 │   │   │   ├── postgres/
 │   │   │   └── sqlite/
-│   │   ├── rest/
-│   │   │   ├── handler_sale.go
-│   │   │   ├── handler_user.go
-│   │   │   └── router.go
+│   │   ├── rest/            # Handlers Gin, Middlewares y Router HTTP
+│   │   │   ├── auth/
+│   │   │   │   └── handler.go
+│   │   │   ├── product/
+│   │   │   └── middleware/
 │   │   ├── messaging/       # Pub/Sub, RabbitMQ, Kafka, etc.
 │   │   └── logging/
 │   │

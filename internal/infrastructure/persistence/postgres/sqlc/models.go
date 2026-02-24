@@ -56,11 +56,41 @@ type Recipe struct {
 	QuantityRequired pgtype.Numeric     `json:"quantity_required"`
 }
 
-type User struct {
-	ID        int64              `json:"id"`
+type Restaurant struct {
+	ID        int32              `json:"id"`
+	Name      string             `json:"name"`
+	Address   pgtype.Text        `json:"address"`
+	Phone     pgtype.Text        `json:"phone"`
+	IsActive  pgtype.Bool        `json:"is_active"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
-	Email     string             `json:"email"`
-	Password  string             `json:"password"`
+}
+
+type Role struct {
+	ID          int32       `json:"id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+}
+
+type Session struct {
+	ID           int32              `json:"id"`
+	UserID       int32              `json:"user_id"`
+	RefreshToken string             `json:"refresh_token"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	DeviceInfo   pgtype.Text        `json:"device_info"`
+	IpAddress    pgtype.Text        `json:"ip_address"`
+	IsRevoked    pgtype.Bool        `json:"is_revoked"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type User struct {
+	ID           int32              `json:"id"`
+	RestaurantID int32              `json:"restaurant_id"`
+	RoleID       int32              `json:"role_id"`
+	Name         string             `json:"name"`
+	Email        string             `json:"email"`
+	PasswordHash string             `json:"password_hash"`
+	IsActive     pgtype.Bool        `json:"is_active"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }

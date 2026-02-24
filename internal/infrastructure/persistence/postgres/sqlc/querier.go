@@ -13,6 +13,9 @@ type Querier interface {
 	CreateCategory(ctx context.Context, categoryName string) (Category, error)
 	CreateIngredient(ctx context.Context, arg CreateIngredientParams) (Ingredient, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
+	CreateRestaurant(ctx context.Context, arg CreateRestaurantParams) (Restaurant, error)
+	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteCategory(ctx context.Context, id int64) error
 	DeleteIngredient(ctx context.Context, id int64) error
 	DeleteProduct(ctx context.Context, id int64) error
@@ -21,13 +24,23 @@ type Querier interface {
 	GetIngredientByID(ctx context.Context, id int64) (Ingredient, error)
 	GetProduct(ctx context.Context, id int64) (Product, error)
 	GetRecipeByProductID(ctx context.Context, productID int64) ([]GetRecipeByProductIDRow, error)
+	GetRestaurantByID(ctx context.Context, id int32) (Restaurant, error)
+	GetRoleByID(ctx context.Context, id int32) (Role, error)
+	GetRoleByName(ctx context.Context, name string) (Role, error)
+	GetSessionByToken(ctx context.Context, refreshToken string) (Session, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
+	GetUserByID(ctx context.Context, id int32) (User, error)
 	ListAllIngredients(ctx context.Context) ([]Ingredient, error)
 	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error)
 	ListIngredients(ctx context.Context, arg ListIngredientsParams) ([]Ingredient, error)
 	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
+	ListUsersByRestaurant(ctx context.Context, restaurantID int32) ([]User, error)
+	RevokeSession(ctx context.Context, refreshToken string) error
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateIngredient(ctx context.Context, arg UpdateIngredientParams) (Ingredient, error)
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
+	UpdateRestaurant(ctx context.Context, arg UpdateRestaurantParams) (Restaurant, error)
+	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)
