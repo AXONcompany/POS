@@ -9,16 +9,18 @@ import (
 	"time"
 
 	appcfg "github.com/AXONcompany/POS/internal/config"
-	apphttp "github.com/AXONcompany/POS/internal/infrastructure/rest"
-	httping "github.com/AXONcompany/POS/internal/infrastructure/rest/ingredient" //http ingredient
-	httpproduct "github.com/AXONcompany/POS/internal/infrastructure/rest/product"
 	apppg "github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres"
+	apphttp "github.com/AXONcompany/POS/internal/infrastructure/rest"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/auth"
+	httping "github.com/AXONcompany/POS/internal/infrastructure/rest/ingredient"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/order"
+	httpproduct "github.com/AXONcompany/POS/internal/infrastructure/rest/product"
+	tableHttp "github.com/AXONcompany/POS/internal/infrastructure/rest/table"
 	uauth "github.com/AXONcompany/POS/internal/usecase/auth"
-	uing "github.com/AXONcompany/POS/internal/usecase/ingredients" //usecase ingredient
+	uing "github.com/AXONcompany/POS/internal/usecase/ingredient" //usecase ingredient
 	uorder "github.com/AXONcompany/POS/internal/usecase/order"
-	uproducts "github.com/AXONcompany/POS/internal/usecase/products"
+	uproducts "github.com/AXONcompany/POS/internal/usecase/product"
+	tableUsecase "github.com/AXONcompany/POS/internal/usecase/table"
 )
 
 func main() {
@@ -49,8 +51,8 @@ func main() {
 	var orderRepo *apppg.OrderRepository // Requires order postgres implementation
 
 	// Service / Usecase
-	ingredientService := uing.NewIngredientService(ingredientRepo)
-	productService := uproducts.NewService(productRepo, categoryRepo, recipeRepo)
+	ingredientService := uing.NewUsecase(ingredientRepo)
+	productService := uproducts.NewUsecase(productRepo, categoryRepo, recipeRepo)
 	authUsecase := uauth.NewUsecase(userRepo, sessionRepo, cfg.JWTSecret)
 	orderUsecase := uorder.NewUsecase(orderRepo)
 
@@ -60,8 +62,12 @@ func main() {
 	authHandler := auth.NewHandler(authUsecase)
 	orderHandler := order.NewHandler(orderUsecase)
 
+	tableRepo := apppg.NewTableRepository(db)
+	tableService := tableUsecase.NewUsecase(tableRepo)
+	tableHandler := tableHttp.NewHandler(tableService)
+
 	// Router
-	router := apphttp.NewRouter(cfg, ingredientHandler, productHandler, authHandler, orderHandler)
+	router := apphttp.NewRouter(cfg, ingredientHandler, productHandler, authHandler, orderHandler, tableHandler)
 
 	srv := &http.Server{
 		Addr:         cfg.GetHTTPAddr(),

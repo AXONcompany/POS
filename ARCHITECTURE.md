@@ -2,7 +2,7 @@
 
 ## Descripción general
 
-El backend del sistema POS (Point of Sale) es una API RESTful desarrollada en Go (Golang) que proporciona servicios para la gestión de ventas, inventario, usuarios, reportes y sincronización con sistemas externos (por ejemplo, contabilidad o facturación electrónica).
+El backend del sistema POS (Point of Sale) es una API RESTful desarrollada en Go (Golang) que proporciona servicios para la gestión de ventas, inventario, usuarios, reportes y sincronización con sistemas externos (por ejemplo, contabilidad o facturación electrónica). 
 
 El objetivo principal es ofrecer un servicio rápido, modular y escalable, que pueda ejecutarse tanto en local (tienda) como en la nube, manteniendo sincronización asíncrona en caso de pérdida de conectividad.
 
@@ -38,27 +38,35 @@ pos-backend/
 │       └── main.go          # Punto de entrada de la aplicación
 │
 ├── internal/
-│   ├── domain/              # Entidades y lógica de negocio pura
-│   │   ├── sale/
-│   │   │   ├── sale.go
-│   │   │   └── sale_test.go
+│   ├── domain/              # Entidades y lógica pura (sin repositorios)
+│   │   ├── ingredient/
+│   │   ├── order/
 │   │   ├── product/
+│   │   ├── restaurant/
+│   │   ├── table/
 │   │   └── user/
 │   │
-│   ├── usecase/             # Casos de uso (application layer)
-│   │   ├── sale_service.go
-│   │   ├── product_service.go
-│   │   └── user_service.go
+│   ├── usecase/             # Casos de uso (Application Layer) e interfaces de BD locales
+│   │   ├── auth/
+│   │   ├── ingredient/
+│   │   ├── order/
+│   │   ├── product/
+│   │   ├── restaurant/
+│   │   ├── table/
+│   │   └── user/
 │   │
-│   ├── infrastructure/      # Adaptadores hacia sistemas y transporte externo
+│   ├── infrastructure/      # Adaptadores hacia DB y HTTP
 │   │   ├── persistence/
 │   │   │   ├── postgres/
 │   │   │   └── sqlite/
-│   │   ├── rest/            # Handlers Gin, Middlewares y Router HTTP
+│   │   ├── rest/            # Handlers Gin y Rutas HTTP
 │   │   │   ├── auth/
-│   │   │   │   └── handler.go
+│   │   │   ├── ingredient/
+│   │   │   ├── order/
 │   │   │   ├── product/
-│   │   │   └── middleware/
+│   │   │   ├── restaurant/
+│   │   │   ├── table/
+│   │   │   └── user/
 │   │   ├── messaging/       # Pub/Sub, RabbitMQ, Kafka, etc.
 │   │   └── logging/
 │   │

@@ -5,16 +5,16 @@ import (
 	"strconv"
 
 	"github.com/AXONcompany/POS/internal/domain/product"
-	usecase "github.com/AXONcompany/POS/internal/usecase/products"
+	usecase "github.com/AXONcompany/POS/internal/usecase/product"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	service *usecase.Service
+	uc *usecase.Usecase
 }
 
-func NewHandler(service *usecase.Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(uc *usecase.Usecase) *Handler {
+	return &Handler{uc: uc}
 }
 
 func toCategoryResponse(c *product.Category) CategoryResponse {
@@ -50,7 +50,7 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 		Name: req.Name,
 	}
 
-	created, err := h.service.CreateCategory(c.Request.Context(), cat)
+	created, err := h.uc.CreateCategory(c.Request.Context(), cat)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -63,7 +63,7 @@ func (h *Handler) GetAllCategories(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	cats, err := h.service.GetAllCategories(c.Request.Context(), page, pageSize)
+	cats, err := h.uc.GetAllCategories(c.Request.Context(), page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -96,7 +96,7 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		IsActive:   req.IsActive,
 	}
 
-	created, err := h.service.CreateProduct(c.Request.Context(), prod)
+	created, err := h.uc.CreateProduct(c.Request.Context(), prod)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -109,7 +109,7 @@ func (h *Handler) GetAllProducts(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	prods, err := h.service.GetAllProducts(c.Request.Context(), page, pageSize)
+	prods, err := h.uc.GetAllProducts(c.Request.Context(), page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -142,7 +142,7 @@ func (h *Handler) AddIngredient(c *gin.Context) {
 		return
 	}
 
-	item, err := h.service.AddIngredient(c.Request.Context(), productID, req.IngredientID, req.Quantity)
+	item, err := h.uc.AddIngredient(c.Request.Context(), productID, req.IngredientID, req.Quantity)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -163,7 +163,7 @@ func (h *Handler) GetIngredients(c *gin.Context) {
 		return
 	}
 
-	items, err := h.service.GetProductIngredients(c.Request.Context(), productID)
+	items, err := h.uc.GetProductIngredients(c.Request.Context(), productID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

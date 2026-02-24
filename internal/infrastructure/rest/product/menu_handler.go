@@ -33,7 +33,7 @@ func (h *Handler) CreateMenuItem(c *gin.Context) {
 		}
 	}
 
-	created, err := h.service.CreateMenuItem(c.Request.Context(), req.Name, req.SalesPrice, ingredients)
+	created, err := h.uc.CreateMenuItem(c.Request.Context(), req.Name, req.SalesPrice, ingredients)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -61,7 +61,7 @@ func (h *Handler) UpdateMenuItem(c *gin.Context) {
 	// 2. Update fields
 	// 3. UpdateProduct
 
-	current, err := h.service.GetProduct(c.Request.Context(), id)
+	current, err := h.uc.GetProduct(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
 		return
@@ -74,7 +74,7 @@ func (h *Handler) UpdateMenuItem(c *gin.Context) {
 		current.SalesPrice = req.SalesPrice
 	}
 
-	updated, err := h.service.UpdateProduct(c.Request.Context(), id, *current)
+	updated, err := h.uc.UpdateProduct(c.Request.Context(), id, *current)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -4,17 +4,17 @@ import (
 	"net/http"
 	"strconv"
 
-	ding "github.com/AXONcompany/POS/internal/domain/ingredient"   //domain ingredient
-	uing "github.com/AXONcompany/POS/internal/usecase/ingredients" //use case ingredient
+	ding "github.com/AXONcompany/POS/internal/domain/ingredient"  //domain ingredient
+	uing "github.com/AXONcompany/POS/internal/usecase/ingredient" //use case ingredient
 	"github.com/gin-gonic/gin"
 )
 
 type IngredientHandler struct {
-	service *uing.IngredientService
+	uc *uing.Usecase
 }
 
-func NewIngredientHandler(service *uing.IngredientService) *IngredientHandler {
-	return &IngredientHandler{service: service}
+func NewIngredientHandler(uc *uing.Usecase) *IngredientHandler {
+	return &IngredientHandler{uc: uc}
 }
 
 // POST /ingredients
@@ -34,7 +34,7 @@ func (h *IngredientHandler) Create(c *gin.Context) {
 		Stock:          req.Stock,
 	}
 
-	created, err := h.service.CreateIngredient(c.Request.Context(), ing)
+	created, err := h.uc.CreateIngredient(c.Request.Context(), ing)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
@@ -51,7 +51,7 @@ func (h *IngredientHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	ing, err := h.service.GetIngredient(c.Request.Context(), id)
+	ing, err := h.uc.GetIngredient(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -83,7 +83,7 @@ func (h *IngredientHandler) Update(c *gin.Context) {
 		Stock:          req.Stock,
 	}
 
-	updated, err := h.service.UpdateIngredient(c.Request.Context(), id, updates)
+	updated, err := h.uc.UpdateIngredient(c.Request.Context(), id, updates)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -97,7 +97,7 @@ func (h *IngredientHandler) GetAll(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	ings, err := h.service.GetAllIngredients(c.Request.Context(), page, pageSize)
+	ings, err := h.uc.GetAllIngredients(c.Request.Context(), page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -122,7 +122,7 @@ func (h *IngredientHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	err = h.service.DeleteIngredient(c, id)
+	err = h.uc.DeleteIngredient(c, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -132,7 +132,7 @@ func (h *IngredientHandler) Delete(c *gin.Context) {
 }
 
 func (h *IngredientHandler) GetInventoryReport(c *gin.Context) {
-	ings, err := h.service.GetInventoryReport(c.Request.Context())
+	ings, err := h.uc.GetInventoryReport(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

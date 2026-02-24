@@ -38,14 +38,14 @@ func Load() (Config, error) {
 	cfg := Config{
 		Env:             getEnv("APP_ENV", "dev"),
 		HTTPHost:        getEnv("HTTP_HOST", "0.0.0.0"),
-		HTTPPort:        getEnv("HTTP_PORT", "8080"),
+		HTTPPort:        getEnv("HTTP_PORT", "8081"),
 		ShutdownTimeout: getDurationEnv("SHUTDOWN_TIMEOUT", 10*time.Second),
 		ReadTimeout:     getDurationEnv("HTTP_READ_TIMEOUT", 10*time.Second),
 		WriteTimeout:    getDurationEnv("HTTP_WRITE_TIMEOUT", 10*time.Second),
 		IdleTimeout:     getDurationEnv("HTTP_IDLE_TIMEOUT", 60*time.Second),
 
 		PGHost:     getEnvFirst("PG_HOST", "DB_HOST", "POSTGRES_HOST", "127.0.0.1"),
-		PGPort:     getEnvFirst("PG_PORT", "DB_PORT", "POSTGRES_PORT", "5432"),
+		PGPort:     getEnvFirst("PG_PORT", "DB_PORT", "POSTGRES_PORT", "5433"),
 		PGUser:     getEnvFirst("PG_USER", "DB_USER", "POSTGRES_USER", "postgres"),
 		PGPassword: getEnvFirst("PG_PASSWORD", "DB_PASSWORD", "POSTGRES_PASSWORD", "postgres"),
 		PGDatabase: getEnvFirst("PG_DATABASE", "DB_NAME", "POSTGRES_DB", "pos"),
