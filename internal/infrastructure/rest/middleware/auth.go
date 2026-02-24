@@ -66,14 +66,23 @@ func AuthMiddleware(jwtSecret []byte) gin.HandlerFunc {
 	}
 }
 
-// RequireRole checks if the user has a specific role ID.
-func RequireRole(roleID int) gin.HandlerFunc {
+// RequireRoles checks if the user has any of the specified roles.
+func RequireRoles(allowedRoles ...int) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userRoleID, exists := c.Get(RoleIDKey)
-		if !exists || userRoleID.(int) != roleID {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden: insufficient permissions"})
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden: missing role information"})
 			return
 		}
-		c.Next()
+
+		userRole := userRoleID.(int)
+		for _, role := range allowedRoles {
+			if userRole == role {
+				c.Next()
+				return
+			}
+		}
+
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden: insufficient permissions"})
 	}
 }

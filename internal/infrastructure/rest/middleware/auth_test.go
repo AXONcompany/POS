@@ -24,7 +24,7 @@ func setupRouter(jwtSecret []byte) *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"role": roleID})
 	})
 
-	r.GET("/admin-only", middleware.RequireRole(1), func(c *gin.Context) {
+	r.GET("/admin-only", middleware.RequireRoles(1), func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
 
