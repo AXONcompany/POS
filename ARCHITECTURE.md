@@ -2,7 +2,7 @@
 
 ## Descripción general
 
-El backend del sistema POS (Point of Sale) es una API RESTful desarrollada en Go (Golang) que proporciona servicios para la gestión de ventas, inventario, usuarios, reportes y sincronización con sistemas externos (por ejemplo, contabilidad o facturación electrónica).
+El backend del sistema POS (Point of Sale) es una API RESTful desarrollada en Go (Golang) que proporciona servicios para la gestión de ventas, inventario, usuarios, reportes y sincronización con sistemas externos (por ejemplo, contabilidad o facturación electrónica). 
 
 El objetivo principal es ofrecer un servicio rápido, modular y escalable, que pueda ejecutarse tanto en local (tienda) como en la nube, manteniendo sincronización asíncrona en caso de pérdida de conectividad.
 
