@@ -27,6 +27,11 @@ type Config struct {
 	PGDatabase string
 	PGSSLMode  string
 	PGMaxConns int32
+
+	DBMaxOpenConns int32
+	DBMaxIdleConns int32
+	DBConnMaxLife  time.Duration
+	JWTSecret      string
 }
 
 func Load() (Config, error) {

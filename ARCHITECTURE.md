@@ -20,11 +20,13 @@ Esto permite mantener el dominio desacoplado y fácilmente testeable.
 |  (Use cases / Services)   |                            |
 +---------------------------+-----------------------------+
 |           Domain Layer                                   |
-|   (Entities, Aggregates, Value Objects, Interfaces)      |
+|   (Entities, Aggregates, Value Objects)                  |
 +---------------------------------------------------------+
 |          Infrastructure Layer                            |
-|   (DB adapters, Repositories, External APIs, Logger)     |
+|   (DB adapters, REST Handlers, External APIs, Logger)    |
 +---------------------------------------------------------+
+
+*Nota sobre Segregación de Interfaces (effective-go)*: Fiel al principio de Go de "definir interfaces donde se usan y no donde se implementan", las interfaces de los Repositorios se encuentran localizadas dentro de la capa Application (`internal/usecase`) y la infraestructura (`internal/infrastructure/persistence`) se acopla implícitamente a ellas.
 ```
 
 ## Estructura de carpetas
@@ -36,26 +38,35 @@ pos-backend/
 │       └── main.go          # Punto de entrada de la aplicación
 │
 ├── internal/
-│   ├── domain/              # Entidades y lógica de negocio pura
-│   │   ├── sale/
-│   │   │   ├── sale.go
-│   │   │   └── sale_test.go
+│   ├── domain/              # Entidades y lógica pura (sin repositorios)
+│   │   ├── ingredient/
+│   │   ├── order/
 │   │   ├── product/
+│   │   ├── restaurant/
+│   │   ├── table/
 │   │   └── user/
 │   │
-│   ├── usecase/             # Casos de uso (application layer)
-│   │   ├── sale_service.go
-│   │   ├── product_service.go
-│   │   └── user_service.go
+│   ├── usecase/             # Casos de uso (Application Layer) e interfaces de BD locales
+│   │   ├── auth/
+│   │   ├── ingredient/
+│   │   ├── order/
+│   │   ├── product/
+│   │   ├── restaurant/
+│   │   ├── table/
+│   │   └── user/
 │   │
-│   ├── infrastructure/      # Adaptadores hacia sistemas externos
+│   ├── infrastructure/      # Adaptadores hacia DB y HTTP
 │   │   ├── persistence/
 │   │   │   ├── postgres/
 │   │   │   └── sqlite/
-│   │   ├── rest/
-│   │   │   ├── handler_sale.go
-│   │   │   ├── handler_user.go
-│   │   │   └── router.go
+│   │   ├── rest/            # Handlers Gin y Rutas HTTP
+│   │   │   ├── auth/
+│   │   │   ├── ingredient/
+│   │   │   ├── order/
+│   │   │   ├── product/
+│   │   │   ├── restaurant/
+│   │   │   ├── table/
+│   │   │   └── user/
 │   │   ├── messaging/       # Pub/Sub, RabbitMQ, Kafka, etc.
 │   │   └── logging/
 │   │
