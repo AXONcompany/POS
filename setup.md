@@ -1,4 +1,5 @@
 # POS — Setup (Docker + Postgres + Migraciones)
+# a
 
 Este documento deja el proyecto listo para correr en local con Docker Compose, aplicar migraciones y verificar que el backend esté funcionando.
 
