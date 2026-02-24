@@ -1,25 +1,26 @@
-create if not exists tables(
-  id_table bigserial primary key,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  deleted_at timestamptz null,
+CREATE TABLE IF NOT EXISTS tables (
+  id_table bigserial PRIMARY KEY,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW(),
+  deleted_at timestamptz NULL,
 
-  table_number integer not null unique,
-  capacity integer not null,
-  status varchar(16) not null,
-  arrival_time timestamptz
+  table_number integer NOT NULL UNIQUE,
+  capacity integer NOT NULL,
+  status varchar(16) NOT NULL DEFAULT 'LIBRE', 
+  arrival_time timestamptz NULL
 );
 
-create table if not exists table_waitress (
-    id bigserial primary key,
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now(),
-    deleted_at timestamptz null,
+CREATE TABLE IF NOT EXISTS table_waitress (
+    id bigserial PRIMARY KEY,
+    created_at timestamptz NOT NULL DEFAULT NOW(),
+    updated_at timestamptz NOT NULL DEFAULT NOW(),
+    deleted_at timestamptz NULL,
 
-    --FOREIGN KEYS
-    table_id bigint not null,
-    waitress_id bigint not null,
+    -- FOREIGN KEYS
+    table_id bigint NOT NULL,
+    waitress_id bigint NOT NULL,
 
-    FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE CASCADE,
-    FOREIGN KEY (waitress_id) REFERENCES waitress(id_user) ON DELETE CASCADE
+    -- Ya corregido: apunta a id_table
+    CONSTRAINT fk_table FOREIGN KEY (table_id) REFERENCES tables(id_table) ON DELETE CASCADE,
+    CONSTRAINT fk_waitress FOREIGN KEY (waitress_id) REFERENCES waitress(id_user) ON DELETE CASCADE
 );

@@ -11,29 +11,27 @@ ORDER BY table_number;
 
 -- name: GetTable :one
 SELECT * FROM tables
-WHERE id = $1 LIMIT 1;
+WHERE id_table = $1 LIMIT 1; -- Cambiado: id -> id_table
 
 -- name: UpdateTableStatus :one
 UPDATE tables
 SET status = $2, arrival_time = $3, updated_at = now()
-WHERE id = $1
+WHERE id_table = $1 -- Cambiado: id -> id_table
 RETURNING *;
 
 -- name: UpdateTable :exec
 UPDATE tables
 SET 
-    -- COALESCE significa: "Si el primer valor es nulo, usa el segundo"
-    -- sqlc.narg() permite pasar nulos desde Go
     table_number = COALESCE(sqlc.narg('table_number'), table_number),
     capacity     = COALESCE(sqlc.narg('capacity'), capacity),
     status       = COALESCE(sqlc.narg('status'), status),
     arrival_time = COALESCE(sqlc.narg('arrival_time'), arrival_time),
     updated_at   = now()
-WHERE id = sqlc.arg('id');
+WHERE id_table = sqlc.arg('id_table'); -- Cambiado: id -> id_table
 
 -- name: DeleteTable :exec
 DELETE FROM tables
-WHERE id = $1;
+WHERE id_table = $1; -- Cambiado: id -> id_table
 
 -- SECCION: Asignación de Mesas (Table Waitress) --
 

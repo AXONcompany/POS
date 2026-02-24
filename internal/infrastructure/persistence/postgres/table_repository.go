@@ -12,9 +12,9 @@ type TableRepository struct {
 	queries *sqlc.Queries
 }
 
-func NewTableRepository(db sqlc.DBTX) *TableRepository {
+func NewTableRepository(db *DB) *TableRepository {
 	return &TableRepository{
-		queries: sqlc.New(db),
+		queries: sqlc.New(db.Pool),
 	}
 }
 
@@ -41,7 +41,7 @@ func (r *TableRepository) Create(ctx context.Context, tbl *table.Table) error {
 		return err
 	}
 
-	tbl.ID = generated.ID
+	tbl.ID = generated.IDTable
 	tbl.CreatedAt = generated.CreatedAt.Time
 	return nil
 }
@@ -70,7 +70,7 @@ func (r *TableRepository) FindByID(ctx context.Context, id int64) (*table.Table,
 }
 func (r *TableRepository) Update(ctx context.Context, id int64, updates *table.TableUpdates) error {
 	params := sqlc.UpdateTableParams{
-		ID: id,
+		IDTable: id,
 	}
 
 	if updates.Number != nil {
@@ -138,7 +138,7 @@ func (r *TableRepository) FindWaitressesByTableID(ctx context.Context, tableID i
 }
 func (r *TableRepository) mapToDomain(row sqlc.Table) table.Table {
 	t := table.Table{
-		ID:        row.ID,
+		ID:        row.IDTable,
 		Number:    int(row.TableNumber),
 		Capacity:  int(row.Capacity),
 		Status:    row.Status,

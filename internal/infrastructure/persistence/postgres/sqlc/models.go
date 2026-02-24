@@ -28,7 +28,7 @@ type Ingredient struct {
 }
 
 type Table struct {
-	ID          int64              `json:"id"`
+	IDTable     int64              `json:"id_table"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`

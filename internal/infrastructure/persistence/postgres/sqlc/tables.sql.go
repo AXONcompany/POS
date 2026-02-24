@@ -13,6 +13,7 @@ import (
 
 const assignWaitressToTable = `-- name: AssignWaitressToTable :one
 
+
 INSERT INTO table_waitress (
   table_id, waitress_id
 ) VALUES (
@@ -25,6 +26,7 @@ type AssignWaitressToTableParams struct {
 	WaitressID int64 `json:"waitress_id"`
 }
 
+// Cambiado: id -> id_table
 // SECCION: Asignación de Mesas (Table Waitress) --
 func (q *Queries) AssignWaitressToTable(ctx context.Context, arg AssignWaitressToTableParams) (TableWaitress, error) {
 	row := q.db.QueryRow(ctx, assignWaitressToTable, arg.TableID, arg.WaitressID)
@@ -45,7 +47,7 @@ INSERT INTO tables (
   table_number, status, capacity, arrival_time
 ) VALUES (
   $1, $2, $3, $4
-) RETURNING id, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time
+) RETURNING id_table, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time
 `
 
 type CreateTableParams struct {
@@ -64,7 +66,7 @@ func (q *Queries) CreateTable(ctx context.Context, arg CreateTableParams) (Table
 	)
 	var i Table
 	err := row.Scan(
-		&i.ID,
+		&i.IDTable,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -77,25 +79,27 @@ func (q *Queries) CreateTable(ctx context.Context, arg CreateTableParams) (Table
 }
 
 const deleteTable = `-- name: DeleteTable :exec
+
 DELETE FROM tables
-WHERE id = $1
+WHERE id_table = $1
 `
 
-func (q *Queries) DeleteTable(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, deleteTable, id)
+// Cambiado: id -> id_table
+func (q *Queries) DeleteTable(ctx context.Context, idTable int64) error {
+	_, err := q.db.Exec(ctx, deleteTable, idTable)
 	return err
 }
 
 const getTable = `-- name: GetTable :one
-SELECT id, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time FROM tables
-WHERE id = $1 LIMIT 1
+SELECT id_table, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time FROM tables
+WHERE id_table = $1 LIMIT 1
 `
 
-func (q *Queries) GetTable(ctx context.Context, id int64) (Table, error) {
-	row := q.db.QueryRow(ctx, getTable, id)
+func (q *Queries) GetTable(ctx context.Context, idTable int64) (Table, error) {
+	row := q.db.QueryRow(ctx, getTable, idTable)
 	var i Table
 	err := row.Scan(
-		&i.ID,
+		&i.IDTable,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -127,7 +131,7 @@ func (q *Queries) GetWaitressByTable(ctx context.Context, tableID int64) (TableW
 }
 
 const listTables = `-- name: ListTables :many
-SELECT id, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time FROM tables
+SELECT id_table, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time FROM tables
 ORDER BY table_number
 `
 
@@ -141,7 +145,7 @@ func (q *Queries) ListTables(ctx context.Context) ([]Table, error) {
 	for rows.Next() {
 		var i Table
 		if err := rows.Scan(
-			&i.ID,
+			&i.IDTable,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -173,14 +177,12 @@ func (q *Queries) RemoveWaitressFromTable(ctx context.Context, tableID int64) er
 const updateTable = `-- name: UpdateTable :exec
 UPDATE tables
 SET 
-    -- COALESCE significa: "Si el primer valor es nulo, usa el segundo"
-    -- sqlc.narg() permite pasar nulos desde Go
     table_number = COALESCE($1, table_number),
     capacity     = COALESCE($2, capacity),
     status       = COALESCE($3, status),
     arrival_time = COALESCE($4, arrival_time),
     updated_at   = now()
-WHERE id = $5
+WHERE id_table = $5
 `
 
 type UpdateTableParams struct {
@@ -188,7 +190,7 @@ type UpdateTableParams struct {
 	Capacity    pgtype.Int4        `json:"capacity"`
 	Status      pgtype.Text        `json:"status"`
 	ArrivalTime pgtype.Timestamptz `json:"arrival_time"`
-	ID          int64              `json:"id"`
+	IDTable     int64              `json:"id_table"`
 }
 
 func (q *Queries) UpdateTable(ctx context.Context, arg UpdateTableParams) error {
@@ -197,29 +199,31 @@ func (q *Queries) UpdateTable(ctx context.Context, arg UpdateTableParams) error 
 		arg.Capacity,
 		arg.Status,
 		arg.ArrivalTime,
-		arg.ID,
+		arg.IDTable,
 	)
 	return err
 }
 
 const updateTableStatus = `-- name: UpdateTableStatus :one
+
 UPDATE tables
 SET status = $2, arrival_time = $3, updated_at = now()
-WHERE id = $1
-RETURNING id, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time
+WHERE id_table = $1 -- Cambiado: id -> id_table
+RETURNING id_table, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time
 `
 
 type UpdateTableStatusParams struct {
-	ID          int64              `json:"id"`
+	IDTable     int64              `json:"id_table"`
 	Status      string             `json:"status"`
 	ArrivalTime pgtype.Timestamptz `json:"arrival_time"`
 }
 
+// Cambiado: id -> id_table
 func (q *Queries) UpdateTableStatus(ctx context.Context, arg UpdateTableStatusParams) (Table, error) {
-	row := q.db.QueryRow(ctx, updateTableStatus, arg.ID, arg.Status, arg.ArrivalTime)
+	row := q.db.QueryRow(ctx, updateTableStatus, arg.IDTable, arg.Status, arg.ArrivalTime)
 	var i Table
 	err := row.Scan(
-		&i.ID,
+		&i.IDTable,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,

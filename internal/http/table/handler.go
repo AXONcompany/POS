@@ -19,7 +19,7 @@ func NewHandler(s *usecase.Service) *Handler {
 
 // Create maneja POST /tables
 func (h *Handler) Create(c *gin.Context) {
-	var req CreateTableRequest
+	var req CreateRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos inválidos: " + err.Error()})
@@ -72,7 +72,7 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	var req UpdateTableRequest
+	var req UpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

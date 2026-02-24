@@ -16,7 +16,7 @@ create table if not exists waitress(
 );
 
 create table if not exists tables(
-  id bigserial primary key,
+  id_table bigserial primary key,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz null,
@@ -37,7 +37,7 @@ create table if not exists table_waitress (
     table_id bigint not null,
     waitress_id bigint not null,
 
-    FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE CASCADE,
+    FOREIGN KEY (table_id) REFERENCES tables(id_table) ON DELETE CASCADE,
     FOREIGN KEY (waitress_id) REFERENCES waitress(id_user) ON DELETE CASCADE
 );
 
