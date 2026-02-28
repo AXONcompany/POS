@@ -56,11 +56,6 @@ func (h *Handler) UpdateMenuItem(c *gin.Context) {
 		return
 	}
 
-	// Implementation Note: Since we don't have atomic PATCH in service yet, we'll do:
-	// 1. GetProduct
-	// 2. Update fields
-	// 3. UpdateProduct
-
 	current, err := h.uc.GetProduct(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})

@@ -92,6 +92,8 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 		{
 			// Both Mesero & Cajero can create orders
 			orders.POST("", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.CreateOrder)
+			orders.GET("", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.ListByTable)
+			orders.PATCH("/:id/status", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.UpdateOrderStatus)
 
 			// Only Cajero & Propietario can checkout
 			checkout := orders.Group("/:id/checkout")

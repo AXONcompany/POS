@@ -45,8 +45,7 @@ func main() {
 	// New Repositories
 	userRepo := apppg.NewUserRepository(db)
 	sessionRepo := apppg.NewSessionRepository(db)
-
-	var orderRepo *apppg.OrderRepository // Requires order postgres implementation
+	orderRepo := apppg.NewOrderRepository(db)
 
 	// Service / Usecase
 	ingredientService := uing.NewUsecase(ingredientRepo)
