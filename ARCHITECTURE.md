@@ -16,14 +16,14 @@ Esto permite mantener el dominio desacoplado y fácilmente testeable.
 |                     Presentation Layer                  |
 |   (HTTP handlers, GraphQL resolvers, gRPC endpoints)    |
 +---------------------------+-----------------------------+
-|        Application Layer  |                            |
-|  (Use cases / Services)   |                            |
+|        Application Layer  |                             |
+|  (Use cases / Services)   |                             |
 +---------------------------+-----------------------------+
-|           Domain Layer                                   |
-|   (Entities, Aggregates, Value Objects)                  |
+|           Domain Layer                                  |
+|   (Entities, Aggregates, Value Objects)                 |
 +---------------------------------------------------------+
-|          Infrastructure Layer                            |
-|   (DB adapters, REST Handlers, External APIs, Logger)    |
+|          Infrastructure Layer                           |
+|   (DB adapters, REST Handlers, External APIs, Logger)   |
 +---------------------------------------------------------+
 
 *Nota sobre Segregación de Interfaces (effective-go)*: Fiel al principio de Go de "definir interfaces donde se usan y no donde se implementan", las interfaces de los Repositorios se encuentran localizadas dentro de la capa Application (`internal/usecase`) y la infraestructura (`internal/infrastructure/persistence`) se acopla implícitamente a ellas.
