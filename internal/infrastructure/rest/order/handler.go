@@ -33,7 +33,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	order, err := h.uc.CreateOrder(c.Request.Context(), restaurantID.(int), int(userID.(float64)), req.TableID, req.Items)
+	order, err := h.uc.CreateOrder(c.Request.Context(), restaurantID.(int), userID.(int), req.TableID, req.Items)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create order"})
 		return

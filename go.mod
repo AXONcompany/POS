@@ -6,7 +6,7 @@ require (
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/stretchr/testify v1.11.1
-	go.uber.org/mock v0.5.0
+	go.uber.org/mock v0.5.0 // indirect
 )
 
 require (
