@@ -5,12 +5,13 @@ import (
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/auth"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/ingredient"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/order"
+	"github.com/AXONcompany/POS/internal/infrastructure/rest/sale"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/product"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/table"
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(cfg config.Config, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler, authHandler *auth.Handler, orderHandler *order.Handler, tableHandler *table.Handler) *gin.Engine {
+func NewRouter(cfg config.Config, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler, authHandler *auth.Handler, orderHandler *order.Handler, tableHandler *table.Handler, saleHandler *sale.SaleHandler) *gin.Engine {
 	if cfg.Env == "prod" {
 		gin.SetMode(gin.ReleaseMode)
 	} else {
@@ -24,7 +25,7 @@ func NewRouter(cfg config.Config, ingredientHandler *ingredient.IngredientHandle
 
 	jwtSecret := []byte(cfg.JWTSecret) // assuming config has JWTSecret
 
-	RegisterRouters(r, ingredientHandler, productHandler, authHandler, orderHandler, tableHandler, jwtSecret)
+	RegisterRouters(r, ingredientHandler, productHandler, authHandler, orderHandler, tableHandler, saleHandler, jwtSecret)
 
 	// Auth Routes
 	authRoutes := r.Group("/auth")

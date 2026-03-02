@@ -21,6 +21,8 @@ import (
 	uorder "github.com/AXONcompany/POS/internal/usecase/order"
 	uproducts "github.com/AXONcompany/POS/internal/usecase/product"
 	tableUsecase "github.com/AXONcompany/POS/internal/usecase/table"
+	httpsale "github.com/AXONcompany/POS/internal/infrastructure/rest/sale"
+	usale "github.com/AXONcompany/POS/internal/usecase/sales"
 )
 
 func main() {
@@ -41,30 +43,34 @@ func main() {
 	productRepo := apppg.NewProductRepository(db)
 	categoryRepo := apppg.NewCategoryRepository(db)
 	recipeRepo := apppg.NewRecipeRepository(db)
-
+	
 	// New Repositories
 	userRepo := apppg.NewUserRepository(db)
 	sessionRepo := apppg.NewSessionRepository(db)
 	orderRepo := apppg.NewOrderRepository(db)
+	saleRepo := apppg.NewSaleRepository(db)
+
 
 	// Service / Usecase
 	ingredientService := uing.NewUsecase(ingredientRepo)
 	productService := uproducts.NewUsecase(productRepo, categoryRepo, recipeRepo)
 	authUsecase := uauth.NewUsecase(userRepo, sessionRepo, cfg.JWTSecret)
 	orderUsecase := uorder.NewUsecase(orderRepo)
+	saleUsecase := usale.NewUsecase(saleRepo, orderUsecase)
 
 	// Handler
 	ingredientHandler := httping.NewIngredientHandler(ingredientService)
 	productHandler := httpproduct.NewHandler(productService)
 	authHandler := auth.NewHandler(authUsecase)
 	orderHandler := order.NewHandler(orderUsecase)
+	saleHandler := httpsale.NewSaleHandler(saleUsecase)
 
 	tableRepo := apppg.NewTableRepository(db)
 	tableService := tableUsecase.NewUsecase(tableRepo)
 	tableHandler := tableHttp.NewHandler(tableService)
 
 	// Router
-	router := apphttp.NewRouter(cfg, ingredientHandler, productHandler, authHandler, orderHandler, tableHandler)
+	router := apphttp.NewRouter(cfg, ingredientHandler, productHandler, authHandler, orderHandler, tableHandler, saleHandler)
 
 	srv := &http.Server{
 		Addr:         cfg.GetHTTPAddr(),
