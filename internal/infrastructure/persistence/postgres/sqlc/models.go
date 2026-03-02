@@ -27,6 +27,35 @@ type Ingredient struct {
 	Stock          int64              `json:"stock"`
 }
 
+type Order struct {
+	ID           int64              `json:"id"`
+	RestaurantID int32              `json:"restaurant_id"`
+	TableID      pgtype.Int8        `json:"table_id"`
+	UserID       int32              `json:"user_id"`
+	StatusID     int32              `json:"status_id"`
+	TotalAmount  pgtype.Numeric     `json:"total_amount"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type OrderItem struct {
+	ID        int64              `json:"id"`
+	OrderID   int64              `json:"order_id"`
+	ProductID int64              `json:"product_id"`
+	Quantity  int32              `json:"quantity"`
+	UnitPrice pgtype.Numeric     `json:"unit_price"`
+	Notes     pgtype.Text        `json:"notes"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type OrderStatus struct {
+	ID          int32       `json:"id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+}
+
 type Product struct {
 	ID          int64              `json:"id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
@@ -70,6 +99,17 @@ type Role struct {
 	ID          int32       `json:"id"`
 	Name        string      `json:"name"`
 	Description pgtype.Text `json:"description"`
+}
+
+type Sale struct {
+	ID            int64              `json:"id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
+	Total         pgtype.Numeric     `json:"total"`
+	PaymentMethod string             `json:"payment_method"`
+	Date          pgtype.Timestamptz `json:"date"`
+	OrderID       int32              `json:"order_id"`
 }
 
 type Session struct {

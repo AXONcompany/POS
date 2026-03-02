@@ -8,12 +8,13 @@ import (
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/ingredient"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/middleware"
 	orderrest "github.com/AXONcompany/POS/internal/infrastructure/rest/order"
+	salerest "github.com/AXONcompany/POS/internal/infrastructure/rest/sale"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/product"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/table"
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler, authHandler *auth.Handler, orderHandler *orderrest.Handler, tableHandler *table.Handler, jwtSecret []byte) {
+func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler, authHandler *auth.Handler, orderHandler *orderrest.Handler, tableHandler *table.Handler, saleHandler *salerest.SaleHandler, jwtSecret []byte) {
 
 	log.Printf("RegisterRouters called, ingredientHandler is nil: %v", ingredientHandler == nil)
 
@@ -94,11 +95,20 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 			orders.POST("", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.CreateOrder)
 			orders.GET("", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.ListByTable)
 			orders.PATCH("/:id/status", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.UpdateOrderStatus)
+			orders.POST("/:id/split", middleware.RequireRoles(RoleCajero, RolePropietario), saleHandler.SplitOrder)
 
 			// Only Cajero & Propietario can checkout
 			checkout := orders.Group("/:id/checkout")
 			checkout.Use(middleware.RequireRoles(RoleCajero, RolePropietario))
 			checkout.POST("", orderHandler.CheckoutOrder)
+		}
+
+		// --- SALES ---
+		sales := api.Group("/payments")
+		{
+			//
+			sales.POST("", middleware.RequireRoles(RoleCajero, RolePropietario), saleHandler.ProcessPayment)
+			sales.GET("/:id/invoice", middleware.RequireRoles(RoleCajero, RolePropietario), saleHandler.GetInvoice)
 		}
 	}
 
