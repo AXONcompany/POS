@@ -95,4 +95,4 @@ pos-backend/
 | Auth | JWT con HMAC / RSA |
 | Configuración | viper |
 | Logs | zerolog |
-| Tests | testing, testify, dockertest |
+| Tests | testing, testify |

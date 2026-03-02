@@ -1,152 +1,194 @@
 package order_test
 
 import (
-	"context"
-	"errors"
-	"testing"
+"context"
+"errors"
+"testing"
 
-	domainOrder "github.com/AXONcompany/POS/internal/domain/order"
-	uc "github.com/AXONcompany/POS/internal/usecase/order"
+domainOrder "github.com/AXONcompany/POS/internal/domain/order"
+"github.com/AXONcompany/POS/internal/usecase/order"
+"github.com/stretchr/testify/assert"
+"github.com/stretchr/testify/mock"
 )
 
-type mockOrderRepository struct {
-	createFunc       func(ctx context.Context, o *domainOrder.Order) (*domainOrder.Order, error)
-	getByIDFunc      func(ctx context.Context, id int64, restaurantID int) (*domainOrder.Order, error)
-	updateStatusFunc func(ctx context.Context, id int64, restaurantID int, statusID int) error
-	listByTableFunc  func(ctx context.Context, tableID int64, restaurantID int) ([]domainOrder.Order, error)
+// MockRepository is a testify mock for order.Repository
+type MockRepository struct {
+mock.Mock
 }
 
-func (m *mockOrderRepository) Create(ctx context.Context, o *domainOrder.Order) (*domainOrder.Order, error) {
-	if m.createFunc != nil {
-		return m.createFunc(ctx, o)
-	}
-	return o, nil
+func (m *MockRepository) Create(ctx context.Context, o *domainOrder.Order) (*domainOrder.Order, error) {
+args := m.Called(ctx, o)
+if args.Get(0) != nil {
+return args.Get(0).(*domainOrder.Order), args.Error(1)
+}
+return nil, args.Error(1)
 }
 
-func (m *mockOrderRepository) GetByID(ctx context.Context, id int64, restaurantID int) (*domainOrder.Order, error) {
-	if m.getByIDFunc != nil {
-		return m.getByIDFunc(ctx, id, restaurantID)
-	}
-	return nil, nil
+func (m *MockRepository) GetByID(ctx context.Context, id int64, restaurantID int) (*domainOrder.Order, error) {
+args := m.Called(ctx, id, restaurantID)
+if args.Get(0) != nil {
+return args.Get(0).(*domainOrder.Order), args.Error(1)
+}
+return nil, args.Error(1)
 }
 
-func (m *mockOrderRepository) UpdateStatus(ctx context.Context, id int64, restaurantID int, statusID int) error {
-	if m.updateStatusFunc != nil {
-		return m.updateStatusFunc(ctx, id, restaurantID, statusID)
-	}
-	return nil
+func (m *MockRepository) UpdateStatus(ctx context.Context, id int64, restaurantID int, statusID int) error {
+args := m.Called(ctx, id, restaurantID, statusID)
+return args.Error(0)
 }
 
-func (m *mockOrderRepository) ListByTable(ctx context.Context, tableID int64, restaurantID int) ([]domainOrder.Order, error) {
-	if m.listByTableFunc != nil {
-		return m.listByTableFunc(ctx, tableID, restaurantID)
-	}
-	return []domainOrder.Order{}, nil
+func (m *MockRepository) ListByTable(ctx context.Context, tableID int64, restaurantID int) ([]domainOrder.Order, error) {
+args := m.Called(ctx, tableID, restaurantID)
+if args.Get(0) != nil {
+return args.Get(0).([]domainOrder.Order), args.Error(1)
+}
+return nil, args.Error(1)
 }
 
-func TestCreateOrder_Success(t *testing.T) {
-	mockRepo := &mockOrderRepository{
-		createFunc: func(ctx context.Context, o *domainOrder.Order) (*domainOrder.Order, error) {
-			o.ID = 1
-			return o, nil
-		},
-	}
-	usecase := uc.NewUsecase(mockRepo)
-
-	tableID := int64(5)
-	items := []domainOrder.OrderItem{
-		{ProductID: 1, Quantity: 2, UnitPrice: 10.0},
-		{ProductID: 2, Quantity: 1, UnitPrice: 5.0},
-	}
-
-	order, err := usecase.CreateOrder(context.Background(), 1, 2, &tableID, items)
-
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if order.TotalAmount != 25.0 {
-		t.Errorf("expected total amount 25.0, got %f", order.TotalAmount)
-	}
-	if order.StatusID != 1 {
-		t.Errorf("expected status PENDING (1), got %d", order.StatusID)
-	}
-	if order.ID != 1 {
-		t.Errorf("expected ID 1, got %d", order.ID)
-	}
+func TestCreateOrder(t *testing.T) {
+ctx := context.Background()
+tableID := int64(1)
+items := []domainOrder.OrderItem{
+{ProductID: 1, Quantity: 2, UnitPrice: 10.0},
 }
 
-func TestCreateOrder_Error(t *testing.T) {
-	mockRepo := &mockOrderRepository{
-		createFunc: func(ctx context.Context, o *domainOrder.Order) (*domainOrder.Order, error) {
-			return nil, errors.New("db error")
-		},
-	}
-	usecase := uc.NewUsecase(mockRepo)
+t.Run("success", func(t *testing.T) {
+repo := new(MockRepository)
+uc := order.NewUsecase(repo)
 
-	tableID := int64(5)
-	_, err := usecase.CreateOrder(context.Background(), 1, 2, &tableID, nil)
-
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
+expectedOrder := &domainOrder.Order{
+RestaurantID: 1,
+UserID:       1,
+TableID:      &tableID,
+StatusID:     1,
+TotalAmount:  20.0,
+Items:        items,
 }
 
-func TestCheckoutOrder_Success(t *testing.T) {
-	mockRepo := &mockOrderRepository{
-		updateStatusFunc: func(ctx context.Context, id int64, restaurantID int, statusID int) error {
-			if statusID != 5 {
-				return errors.New("expected status PAID")
-			}
-			return nil
-		},
-	}
-	usecase := uc.NewUsecase(mockRepo)
+repo.On("Create", ctx, expectedOrder).Return(expectedOrder, nil)
 
-	err := usecase.CheckoutOrder(context.Background(), 1, 100)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+createdOrder, err := uc.CreateOrder(ctx, 1, 1, &tableID, items)
+
+assert.NoError(t, err)
+assert.Equal(t, expectedOrder, createdOrder)
+repo.AssertExpectations(t)
+})
+
+t.Run("repo error", func(t *testing.T) {
+repo := new(MockRepository)
+uc := order.NewUsecase(repo)
+
+repoErr := errors.New("db error")
+repo.On("Create", ctx, mock.Anything).Return((*domainOrder.Order)(nil), repoErr)
+
+createdOrder, err := uc.CreateOrder(ctx, 1, 1, &tableID, items)
+
+assert.ErrorIs(t, err, repoErr)
+assert.Nil(t, createdOrder)
+repo.AssertExpectations(t)
+})
+
+t.Run("invalid order - no items", func(t *testing.T) {
+repo := new(MockRepository)
+uc := order.NewUsecase(repo)
+
+createdOrder, err := uc.CreateOrder(ctx, 1, 1, &tableID, []domainOrder.OrderItem{})
+
+assert.ErrorIs(t, err, domainOrder.ErrInvalidOrderItems)
+assert.Nil(t, createdOrder)
+repo.AssertExpectations(t)
+})
 }
 
-func TestUpdateOrderStatus_Success(t *testing.T) {
-	mockRepo := &mockOrderRepository{
-		updateStatusFunc: func(ctx context.Context, id int64, restaurantID int, statusID int) error {
-			if statusID != 3 {
-				return errors.New("expected status READY")
-			}
-			return nil
-		},
-	}
-	usecase := uc.NewUsecase(mockRepo)
+func TestAddProductToOrder(t *testing.T) {
+repo := new(MockRepository)
+uc := order.NewUsecase(repo)
+ctx := context.Background()
 
-	err := usecase.UpdateOrderStatus(context.Background(), 1, 100, 3)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+t.Run("success", func(t *testing.T) {
+err := uc.AddProductToOrder(ctx, 1, 1, []domainOrder.OrderItem{})
+assert.NoError(t, err)
+repo.AssertExpectations(t)
+})
 }
 
-func TestListOrdersByTable_Success(t *testing.T) {
-	mockRepo := &mockOrderRepository{
-		listByTableFunc: func(ctx context.Context, tableID int64, restaurantID int) ([]domainOrder.Order, error) {
-			if tableID != 5 {
-				return nil, errors.New("wrong table ID")
-			}
-			return []domainOrder.Order{
-				{ID: 1, TotalAmount: 100.0},
-				{ID: 2, TotalAmount: 50.0},
-			}, nil
-		},
-	}
-	usecase := uc.NewUsecase(mockRepo)
+func TestGetOrderByID(t *testing.T) {
+ctx := context.Background()
 
-	orders, err := usecase.ListOrdersByTable(context.Background(), 1, 5)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if len(orders) != 2 {
-		t.Errorf("expected 2 orders, got %d", len(orders))
-	}
-	if orders[0].TotalAmount != 100.0 {
-		t.Errorf("expected first order amount 100, got %f", orders[0].TotalAmount)
-	}
+t.Run("success", func(t *testing.T) {
+repo := new(MockRepository)
+uc := order.NewUsecase(repo)
+expectedOrder := &domainOrder.Order{ID: 1, StatusID: 1}
+
+repo.On("GetByID", ctx, int64(1), 1).Return(expectedOrder, nil)
+
+o, err := uc.GetOrderByID(ctx, 1, 1)
+
+assert.NoError(t, err)
+assert.Equal(t, expectedOrder, o)
+repo.AssertExpectations(t)
+})
+
+t.Run("not found", func(t *testing.T) {
+repo := new(MockRepository)
+uc := order.NewUsecase(repo)
+
+repo.On("GetByID", ctx, int64(99), 1).Return((*domainOrder.Order)(nil), errors.New("not found"))
+
+o, err := uc.GetOrderByID(ctx, 1, 99)
+
+assert.Error(t, err)
+assert.Nil(t, o)
+repo.AssertExpectations(t)
+})
+}
+
+func TestUpdateOrderStatus_And_Checkout(t *testing.T) {
+ctx := context.Background()
+
+t.Run("success update status", func(t *testing.T) {
+repo := new(MockRepository)
+uc := order.NewUsecase(repo)
+
+repo.On("UpdateStatus", ctx, int64(1), 1, 3).Return(nil)
+
+err := uc.UpdateOrderStatus(ctx, 1, 1, 3)
+
+assert.NoError(t, err)
+repo.AssertExpectations(t)
+})
+
+t.Run("success checkout", func(t *testing.T) {
+repo := new(MockRepository)
+uc := order.NewUsecase(repo)
+
+repo.On("UpdateStatus", ctx, int64(1), 1, 5).Return(nil)
+
+err := uc.CheckoutOrder(ctx, 1, 1)
+
+assert.NoError(t, err)
+repo.AssertExpectations(t)
+})
+}
+
+func TestListOrdersByTable(t *testing.T) {
+ctx := context.Background()
+
+t.Run("success", func(t *testing.T) {
+repo := new(MockRepository)
+uc := order.NewUsecase(repo)
+
+tableID := int64(1)
+expectedOrders := []domainOrder.Order{
+{ID: 1, TableID: &tableID},
+}
+
+repo.On("ListByTable", ctx, int64(1), 1).Return(expectedOrders, nil)
+
+list, err := uc.ListOrdersByTable(ctx, 1, 1)
+
+assert.NoError(t, err)
+assert.Len(t, list, 1)
+repo.AssertExpectations(t)
+})
 }

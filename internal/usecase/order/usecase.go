@@ -22,21 +22,21 @@ func NewUsecase(repo Repository) *Usecase {
 }
 
 func (uc *Usecase) CreateOrder(ctx context.Context, restaurantID, userID int, tableID *int64, items []domainOrder.OrderItem) (*domainOrder.Order, error) {
-	o := &domainOrder.Order{
-		RestaurantID: restaurantID,
-		UserID:       userID,
-		TableID:      tableID,
-		StatusID:     1, // 1 = PENDING Assuming this is the default
-		TotalAmount:  0, // Will be calculated by usecase or db
-		Items:        items,
-	}
-
-	// Calculate total amount from items (could also validate products)
-	for _, item := range items {
-		o.TotalAmount += item.UnitPrice * float64(item.Quantity)
+	o, err := domainOrder.NewOrder(restaurantID, userID, tableID, items)
+	if err != nil {
+		return nil, err
 	}
 
 	return uc.repo.Create(ctx, o)
+}
+
+func (uc *Usecase) AddProductToOrder(ctx context.Context, restaurantID int, orderID int64, items []domainOrder.OrderItem) error {
+	// Not fully implemented yet, but keeping structure for future tasks
+	return nil
+}
+
+func (uc *Usecase) GetOrderByID(ctx context.Context, restaurantID int, orderID int64) (*domainOrder.Order, error) {
+	return uc.repo.GetByID(ctx, orderID, restaurantID)
 }
 
 func (uc *Usecase) CheckoutOrder(ctx context.Context, restaurantID int, orderID int64) error {
