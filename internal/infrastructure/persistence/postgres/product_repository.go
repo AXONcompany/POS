@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/AXONcompany/POS/internal/domain/product"
 	"github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres/sqlc"
@@ -35,7 +36,7 @@ func toDomainProduct(p sqlc.Product) product.Product {
 
 func floatToNumeric(f float64) pgtype.Numeric {
 	var n pgtype.Numeric
-	n.Scan(f)
+	n.Scan(fmt.Sprintf("%f", f))
 	return n
 }
 

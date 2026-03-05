@@ -1,105 +1,249 @@
 # POS Backend - API Reference
 
-## Base URLs
-- Public: `/` o `/auth`
-- Protected API: `/api/v1`
+Esta documentación contiene todos los endpoints expuestos por el sistema POS para su consumo en el Frontend.
+Todos los endpoints requieren un **Access Token** enviado a través del header `Authorization` a excepción de los marcados como "Público".
 
-Todas las rutas bajo `/api/v1` requieren un Access Token válido (Autenticación Bearer por JWT).
-Roles de Autorización soportados por RBAC (Role-Based Access Control):
+**Headers Globales Requeridos:**
+```http
+Content-Type: application/json
+Authorization: Bearer <vuestro_token_jwt>
+```
+
+**Esquema de Roles soportados:**
 - **Propietario** (Role ID: 1)
 - **Cajero** (Role ID: 2)
 - **Mesero** (Role ID: 3)
 
 ---
 
-## 1. Core & Health Checks
-Rutas públicas y utilitarias.
+## 1. Salud y Monitoreo (Público)
+Endpoints utilizados para monitorizar que el backend está corriendo.
 
-| Método | Endpoint | Acción | Autorización |
-| --- | --- | --- | --- |
-| `GET` | `/health` | Chequeo de estado HTTP JSON. | Pública |
-| `GET` | `/ping` | Chequeo de estado HTTP string. | Pública |
+- **GET `/health`**: Retorna el estado en JSON `{"status": "ok"}`
+- **GET `/ping`**: Retorna string `"server say: pong"`
 
 ---
 
-## 2. Authentication
-Rutas relativas al manejo de sesiones y credenciales de usuario.
+## 2. Autenticación (Público)
 
-| Método | Endpoint | Acción | Autorización |
-| --- | --- | --- | --- |
-| `POST` | `/auth/login` | Iniciar sesión y retornar AccessToken & RefreshToken. | Pública |
+### POST `/auth/login`
+Inicia sesión devolviendo el JWT necesario.
 
-*(Para refresco de sesión o registro de usuarios verificar especificaciones extra de Auth endpoints dependiendo de la implementación)*
+**Request:**
+```json
+{
+  "email": "admin@test.com",
+  "password": "admin"
+}
+```
 
----
-
-## 3. Tables (Mesas)
-Rutas protegidas bajo Auth y dependientes de roles del restaurante. Base URL: `/api/v1`.
-
-| Método | Endpoint | Acción | Autorización |
-| --- | --- | --- | --- |
-| `GET` | `/tables` | Obtener todas las mesas. | Mesero, Cajero, Propietario |
-| `GET` | `/tables/:id` | Recuperar datos de mesa específica. | Mesero, Cajero, Propietario |
-| `POST` | `/tables` | Crear una nueva mesa. | Cajero, Propietario |
-| `PATCH` | `/tables/:id` | Actualizar estado o características de la mesa. | Cajero, Propietario |
-| `DELETE`| `/tables/:id` | Eliminar mesa del sistema. | Cajero, Propietario |
-| `POST` | `/tables/:id/assign` | Asignar un mesero a una mesa activa. | Cajero, Propietario |
+**Response (200 OK):**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "refresh_token": "def456..."
+}
+```
 
 ---
 
-## 4. Ingredients (Ingredientes)
-Base URL: `/api/v1/ingredients`. (Toda la suite está restringida principalmente a administración e inventarios)
+## 3. Mesas (Tables)
+Base URL: `/api/v1/tables`
 
-| Método | Endpoint | Acción | Autorización |
-| --- | --- | --- | --- |
-| `GET` | `/ingredients` | Listar ingredientes. | Propietario |
-| `GET` | `/ingredients/report`| Obtener reporte del stock general de inventario. | Propietario |
-| `POST` | `/ingredients` | Registrar un nuevo ingrediente al catálogo. | Propietario |
-| `GET` | `/ingredients/:id` | Detalles de un ingrediente. | Propietario |
-| `PUT` | `/ingredients/:id` | Actualizar existencias o datos. | Propietario |
-| `DELETE`| `/ingredients/:id` | Remover ingrediente. | Propietario |
+### GET `/`
+Obtiene la lista de todas las mesas.
+*Roles:* `Mesero`, `Cajero`, `Propietario`
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "table_number": 1,
+    "capacity": 4,
+    "status": "LIBRE",
+    "arrival_time": null,
+    "created_at": "2026-03-02T21:54:46Z"
+  }
+]
+```
+
+### POST `/`
+Crea una nueva mesa.
+*Roles:* `Cajero`, `Propietario`
+
+**Request:**
+```json
+{
+  "table_number": 2,
+  "capacity": 2,
+  "status": "LIBRE"
+}
+```
+
+### PATCH `/:id`
+Actualiza el estado o detalles de la mesa (Ej: De `LIBRE` a `OCUPADO`).
+*Roles:* `Cajero`, `Propietario`
+
+**Request:**
+```json
+{
+  "status": "OCUPADO"
+}
+```
+
+### POST `/:id/assign`
+Asigna un mesero a una mesa concreta.
+*Roles:* `Cajero`, `Propietario`
+
+**Request:**
+```json
+{
+  "waitress_id": 2
+}
+```
 
 ---
 
-## 5. Categories (Categorías de Productos)
-Base URL: `/api/v1/categories`. (Utilizado para el menú y base de productos)
+## 4. Categorías de Productos
+Base URL: `/api/v1/categories`
 
-| Método | Endpoint | Acción | Autorización |
-| --- | --- | --- | --- |
-| `GET` | `/categories` | Listar todas las categorías (ej., Entradas, Bebidas). | Propietario |
-| `POST` | `/categories` | Crear nueva categoría. | Propietario |
+### GET `/`
+Listar categorías.
+*Roles:* `Propietario`
 
----
+### POST `/`
+Crear categoría de menú (Ej. Bebidas, Entradas).
+*Roles:* `Propietario`
 
-## 6. Products (Productos)
-Base URL: `/api/v1/products`. Productos genéricos o materia prima con dependencias.
-
-| Método | Endpoint | Acción | Autorización |
-| --- | --- | --- | --- |
-| `GET` | `/products` | Listar todos los productos base. | Propietario |
-| `POST` | `/products` | Registrar producto base en inventario. | Propietario |
-| `GET` | `/products/:id/ingredients`| Ver la receta/ingredientes usados en un producto. | Propietario |
-| `POST`| `/products/:id/ingredients`| Vincular ingredientes a su receta (deducciones futuras). | Propietario |
-
----
-
-## 7. Menu (Menú Público/Interno del Restaurante)
-Base URL: `/api/v1/menu`. Listado curado diseñado para que los meseros levanten pedidos.
-
-| Método | Endpoint | Acción | Autorización |
-| --- | --- | --- | --- |
-| `GET` | `/menu`| Obtiene todos los Ítems de Menú activos (Productos finales). | Mesero, Cajero, Propietario |
-| `POST` | `/menu` | Empaqueta un producto como Ítem Oficial del Menú. | Propietario |
-| `PATCH`| `/menu/:id`| Habilitar, deshabilitar, o cambiar precio del menú. | Propietario |
+**Request:**
+```json
+{
+  "name": "Bebidas",
+  "description": "Bebidas frías y calientes"
+}
+```
 
 ---
 
-## 8. Orders (Órdenes de Cliente)
-Base URL: `/api/v1/orders`. Motor central de operaciones del Punto de Venta.
+## 5. Ingredientes / Inventario
+Base URL: `/api/v1/ingredients`
 
-| Método | Endpoint | Acción | Autorización |
-| --- | --- | --- | --- |
-| `GET` | `/orders` | Listar todas las ordenes. | Mesero, Cajero, Propietario |
-| `POST` | `/orders` | Crear nueva orden adjuntando Items y opcional Mesa. | Mesero, Cajero, Propietario |
-| `PATCH`| `/orders/:id/status`| Mover estados (PENDING -> PREPARING -> READY). | Mesero, Cajero, Propietario |
-| `POST` | `/orders/:id/checkout`| Cerrar orden y pasarlo a "PAID", calculando total. | Cajero, Propietario |
+### GET `/` | GET `/:id` | DELETE `/:id`
+Manejo CRUD de los insumos.
+*Roles:* `Propietario`
+
+### POST `/`
+Agregar materia prima.
+*Roles:* `Propietario`
+
+**Request:**
+```json
+{
+  "name": "Azúcar",
+  "unit_of_measure": "kg",
+  "type": "dry",
+  "stock": 100
+}
+```
+
+---
+
+## 6. Menú (Productos Finales)
+Base URL: `/api/v1/menu`
+
+### GET `/`
+Listado del menú oficial para ser mostrado en la App del Mesero.
+*Roles:* `Mesero`, `Cajero`, `Propietario`
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Coca Cola",
+      "sales_price": 2.5,
+      "is_active": true,
+      "created_at": "..."
+    }
+  ],
+  "page": 1,
+  "page_size": 20
+}
+```
+
+### POST `/`
+Registrar elemento de menú compuesto de sus ingredientes necesarios (Receta).
+*Roles:* `Propietario`
+
+**Request:**
+```json
+{
+  "name": "Coca Cola",
+  "sales_price": 2.5,
+  "description": "Lata de soda fría",
+  "category_id": 1,
+  "ingredients": [
+    {
+      "ingredient_id": 1,
+      "quantity": 0.1
+    }
+  ]
+}
+```
+
+### PATCH `/:id`
+Actualizar precio/estado de un platillo.
+*Roles:* `Propietario`
+
+---
+
+## 7. Órdenes (Operaciones de Venta)
+Base URL: `/api/v1/orders`
+
+### GET `/?table_id=1`
+Lista las órdenes actuales, opcionalmente filtrando por mesa.
+*Roles:* `Mesero`, `Cajero`, `Propietario`
+
+### POST `/`
+Nueva orden de cliente (Command originado en POS).
+*Roles:* `Mesero`, `Cajero`, `Propietario`
+
+**Request:**
+```json
+{
+  "table_id": 1,
+  "items": [
+    {
+      "product_id": 1,
+      "quantity": 2,
+      "unit_price": 2.5
+    }
+  ]
+}
+```
+
+### PATCH `/:id/status`
+Mover la orden por sus estados (PENDIENDO -> COCINANDO -> LISTA)
+*Roles:* `Mesero`, `Cajero`, `Propietario`
+
+**Request:**
+```json
+{
+  "status_id": 2
+}
+```
+
+### POST `/:id/checkout`
+Acción final de Caja cobrando el dinero de la orden (Pasando la orden a `PAID`).
+*Roles:* `Cajero`, `Propietario`
+
+**Response:**
+```json
+{
+  "status": "PAID"
+}
+```
+
+---

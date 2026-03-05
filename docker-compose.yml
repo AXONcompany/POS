@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
 
   migrate:
-    image: axoncompany/pos_migrate:v1
+    image: axoncompany/pos_migrate:latest
     container_name: pos_migrate
     depends_on:
       db:
@@ -32,7 +32,7 @@ services:
     restart: "no"
 
   app:
-    image: axoncompany/pos_axon:v2
+    image: axoncompany/pos_axon:latest
     container_name: pos_app
     depends_on:
       db:
@@ -40,7 +40,7 @@ services:
     environment:
       APP_ENV: dev
       HTTP_HOST: 0.0.0.0
-      HTTP_PORT: "8081"
+      HTTP_PORT: "8080"
       DB_HOST: db
       DB_PORT: "5432"
       DB_USER: ${DB_USER}
