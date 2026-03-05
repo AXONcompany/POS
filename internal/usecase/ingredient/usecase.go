@@ -11,11 +11,11 @@ import (
 
 type IngredientRepository interface {
 	NewIngredient(ctx context.Context, ing ingredient.Ingredient) (*ingredient.Ingredient, error)
-	GetByID(ctx context.Context, id int64) (*ingredient.Ingredient, error)
-	GetAllIngredients(ctx context.Context, page, pageSize int) ([]ingredient.Ingredient, error)
+	GetByID(ctx context.Context, id int64, venueID int) (*ingredient.Ingredient, error)
+	GetAllIngredients(ctx context.Context, venueID int, page, pageSize int) ([]ingredient.Ingredient, error)
 	UpdateIngredient(ctx context.Context, ing ingredient.Ingredient) (ingredient.Ingredient, error)
-	DeleteIngredient(ctx context.Context, id int64) error
-	GetAllInventory(ctx context.Context) ([]ingredient.Ingredient, error)
+	DeleteIngredient(ctx context.Context, id int64, venueID int) error
+	GetAllInventory(ctx context.Context, venueID int) ([]ingredient.Ingredient, error)
 }
 
 type Usecase struct {
@@ -29,7 +29,6 @@ func NewUsecase(repo IngredientRepository) *Usecase {
 }
 
 func (s *Usecase) CreateIngredient(ctx context.Context, ing ingredient.Ingredient) (*ingredient.Ingredient, error) {
-
 	if len(ing.Name) == 0 || ing.Name == "" {
 		return nil, ingredient.ErrNameEmpty
 	}
@@ -44,16 +43,14 @@ func (s *Usecase) CreateIngredient(ctx context.Context, ing ingredient.Ingredien
 	}
 
 	return ingr, nil
-
 }
 
-func (s *Usecase) GetIngredient(ctxt context.Context, id int64) (*ingredient.Ingredient, error) {
-
+func (s *Usecase) GetIngredient(ctx context.Context, id int64, venueID int) (*ingredient.Ingredient, error) {
 	if id <= 0 {
 		return nil, ingredient.ErrInvalidID
 	}
 
-	ing, err := s.repo.GetByID(ctxt, id)
+	ing, err := s.repo.GetByID(ctx, id, venueID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ingredient.ErrNotFound
@@ -62,11 +59,9 @@ func (s *Usecase) GetIngredient(ctxt context.Context, id int64) (*ingredient.Ing
 	}
 
 	return ing, nil
-
 }
 
-func (s *Usecase) GetAllIngredients(ctxt context.Context, page, pageSize int) ([]ingredient.Ingredient, error) {
-
+func (s *Usecase) GetAllIngredients(ctx context.Context, venueID int, page, pageSize int) ([]ingredient.Ingredient, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -74,15 +69,15 @@ func (s *Usecase) GetAllIngredients(ctxt context.Context, page, pageSize int) ([
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	return s.repo.GetAllIngredients(ctxt, page, pageSize)
+	return s.repo.GetAllIngredients(ctx, venueID, page, pageSize)
 }
 
-func (s *Usecase) UpdateIngredient(ctxt context.Context, id int64, updates ingredient.PartialIngredient) (*ingredient.Ingredient, error) {
+func (s *Usecase) UpdateIngredient(ctx context.Context, id int64, venueID int, updates ingredient.PartialIngredient) (*ingredient.Ingredient, error) {
 	if id <= 0 {
 		return nil, ingredient.ErrInvalidID
 	}
 
-	current, err := s.GetIngredient(ctxt, id)
+	current, err := s.GetIngredient(ctx, id, venueID)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +103,7 @@ func (s *Usecase) UpdateIngredient(ctxt context.Context, id int64, updates ingre
 
 	current.ID = id
 
-	updated, err := s.repo.UpdateIngredient(ctxt, *current)
+	updated, err := s.repo.UpdateIngredient(ctx, *current)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ingredient.ErrNotFound
@@ -119,15 +114,14 @@ func (s *Usecase) UpdateIngredient(ctxt context.Context, id int64, updates ingre
 	return &updated, nil
 }
 
-func (s *Usecase) DeleteIngredient(ctx context.Context, id int64) error {
-
+func (s *Usecase) DeleteIngredient(ctx context.Context, id int64, venueID int) error {
 	if id <= 0 {
 		return ingredient.ErrInvalidID
 	}
 
-	return s.repo.DeleteIngredient(ctx, id)
+	return s.repo.DeleteIngredient(ctx, id, venueID)
 }
 
-func (s *Usecase) GetInventoryReport(ctx context.Context) ([]ingredient.Ingredient, error) {
-	return s.repo.GetAllInventory(ctx)
+func (s *Usecase) GetInventoryReport(ctx context.Context, venueID int) ([]ingredient.Ingredient, error) {
+	return s.repo.GetAllInventory(ctx, venueID)
 }

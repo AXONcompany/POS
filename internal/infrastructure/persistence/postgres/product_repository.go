@@ -25,6 +25,7 @@ func toDomainProduct(p sqlc.Product) product.Product {
 	val, _ := p.SalesPrice.Float64Value()
 	return product.Product{
 		ID:         p.ID,
+		VenueID:    int(p.VenueID),
 		Name:       p.ProductName,
 		SalesPrice: val.Float64,
 		IsActive:   p.IsActive,
@@ -42,6 +43,7 @@ func floatToNumeric(f float64) pgtype.Numeric {
 
 func (r *ProductRepository) CreateProduct(ctx context.Context, p product.Product) (*product.Product, error) {
 	row, err := r.q.CreateProduct(ctx, sqlc.CreateProductParams{
+		VenueID:     int32(p.VenueID),
 		ProductName: p.Name,
 		SalesPrice:  floatToNumeric(p.SalesPrice),
 		IsActive:    p.IsActive,
@@ -53,8 +55,11 @@ func (r *ProductRepository) CreateProduct(ctx context.Context, p product.Product
 	return &dp, nil
 }
 
-func (r *ProductRepository) GetByID(ctx context.Context, id int64) (*product.Product, error) {
-	row, err := r.q.GetProduct(ctx, id)
+func (r *ProductRepository) GetByID(ctx context.Context, id int64, venueID int) (*product.Product, error) {
+	row, err := r.q.GetProduct(ctx, sqlc.GetProductParams{
+		ID:      id,
+		VenueID: int32(venueID),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -62,11 +67,12 @@ func (r *ProductRepository) GetByID(ctx context.Context, id int64) (*product.Pro
 	return &dp, nil
 }
 
-func (r *ProductRepository) GetAllProducts(ctx context.Context, page, pageSize int) ([]product.Product, error) {
+func (r *ProductRepository) GetAllProducts(ctx context.Context, venueID int, page, pageSize int) ([]product.Product, error) {
 	offset := (page - 1) * pageSize
 	rows, err := r.q.ListProducts(ctx, sqlc.ListProductsParams{
-		Limit:  int32(pageSize),
-		Offset: int32(offset),
+		VenueID: int32(venueID),
+		Limit:   int32(pageSize),
+		Offset:  int32(offset),
 	})
 	if err != nil {
 		return nil, err
@@ -82,6 +88,7 @@ func (r *ProductRepository) GetAllProducts(ctx context.Context, page, pageSize i
 func (r *ProductRepository) UpdateProduct(ctx context.Context, p product.Product) (*product.Product, error) {
 	row, err := r.q.UpdateProduct(ctx, sqlc.UpdateProductParams{
 		ID:          p.ID,
+		VenueID:     int32(p.VenueID),
 		ProductName: p.Name,
 		SalesPrice:  floatToNumeric(p.SalesPrice),
 		IsActive:    p.IsActive,
@@ -93,8 +100,11 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p product.Product
 	return &dp, nil
 }
 
-func (r *ProductRepository) DeleteProduct(ctx context.Context, id int64) error {
-	return r.q.DeleteProduct(ctx, id)
+func (r *ProductRepository) DeleteProduct(ctx context.Context, id int64, venueID int) error {
+	return r.q.DeleteProduct(ctx, sqlc.DeleteProductParams{
+		ID:      id,
+		VenueID: int32(venueID),
+	})
 }
 
 func (r *ProductRepository) CreateProductWithRecipe(ctx context.Context, p product.Product, items []product.RecipeItem) (*product.Product, error) {
@@ -106,8 +116,8 @@ func (r *ProductRepository) CreateProductWithRecipe(ctx context.Context, p produ
 
 	qtx := r.q.WithTx(tx)
 
-	// 1. Create Product
 	prodRow, err := qtx.CreateProduct(ctx, sqlc.CreateProductParams{
+		VenueID:     int32(p.VenueID),
 		ProductName: p.Name,
 		SalesPrice:  floatToNumeric(p.SalesPrice),
 		IsActive:    p.IsActive,
@@ -116,7 +126,6 @@ func (r *ProductRepository) CreateProductWithRecipe(ctx context.Context, p produ
 		return nil, err
 	}
 
-	// 2. Create Recipe Items
 	for _, item := range items {
 		_, err := qtx.AddRecipeItem(ctx, sqlc.AddRecipeItemParams{
 			ProductID:        prodRow.ID,

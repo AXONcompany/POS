@@ -10,54 +10,54 @@ import (
 
 type Querier interface {
 	AddRecipeItem(ctx context.Context, arg AddRecipeItemParams) (Recipe, error)
-	// Cambiado: id -> id_table
-	// SECCION: Asignación de Mesas (Table Waitress) --
-	AssignWaitressToTable(ctx context.Context, arg AssignWaitressToTableParams) (TableWaitress, error)
-	CreateCategory(ctx context.Context, categoryName string) (Category, error)
+	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
 	CreateIngredient(ctx context.Context, arg CreateIngredientParams) (Ingredient, error)
+	CreateOwner(ctx context.Context, arg CreateOwnerParams) (Owner, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
-	CreateRestaurant(ctx context.Context, arg CreateRestaurantParams) (Restaurant, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateTable(ctx context.Context, arg CreateTableParams) (Table, error)
+	CreateTerminal(ctx context.Context, arg CreateTerminalParams) (PosTerminal, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
-	CreateWaitress(ctx context.Context, idUser int64) (int64, error)
-	DeleteCategory(ctx context.Context, id int64) error
-	DeleteIngredient(ctx context.Context, id int64) error
-	DeleteProduct(ctx context.Context, id int64) error
+	CreateVenue(ctx context.Context, arg CreateVenueParams) (Venue, error)
+	DeleteCategory(ctx context.Context, arg DeleteCategoryParams) error
+	DeleteIngredient(ctx context.Context, arg DeleteIngredientParams) error
+	DeleteProduct(ctx context.Context, arg DeleteProductParams) error
 	DeleteRecipeItem(ctx context.Context, id int64) error
-	// Cambiado: id -> id_table
-	DeleteTable(ctx context.Context, idTable int64) error
-	DeleteWaitress(ctx context.Context, idUser int64) error
-	GetCategory(ctx context.Context, id int64) (Category, error)
-	GetIngredientByID(ctx context.Context, id int64) (Ingredient, error)
-	GetProduct(ctx context.Context, id int64) (Product, error)
+	DeleteTable(ctx context.Context, arg DeleteTableParams) error
+	GetCategory(ctx context.Context, arg GetCategoryParams) (Category, error)
+	GetIngredientByID(ctx context.Context, arg GetIngredientByIDParams) (Ingredient, error)
+	GetOwnerByEmail(ctx context.Context, email string) (Owner, error)
+	GetOwnerByID(ctx context.Context, id int32) (Owner, error)
+	GetProduct(ctx context.Context, arg GetProductParams) (Product, error)
 	GetRecipeByProductID(ctx context.Context, productID int64) ([]GetRecipeByProductIDRow, error)
-	GetRestaurantByID(ctx context.Context, id int32) (Restaurant, error)
 	GetRoleByID(ctx context.Context, id int32) (Role, error)
 	GetRoleByName(ctx context.Context, name string) (Role, error)
 	GetSessionByToken(ctx context.Context, refreshToken string) (Session, error)
-	GetTable(ctx context.Context, idTable int64) (Table, error)
+	GetTable(ctx context.Context, arg GetTableParams) (Table, error)
+	GetTerminalByID(ctx context.Context, id int32) (PosTerminal, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id int32) (User, error)
-	GetWaitress(ctx context.Context, idUser int64) (int64, error)
-	GetWaitressByTable(ctx context.Context, tableID int64) (TableWaitress, error)
-	ListAllIngredients(ctx context.Context) ([]Ingredient, error)
+	GetVenueByID(ctx context.Context, id int32) (Venue, error)
+	ListAllIngredients(ctx context.Context, venueID int32) ([]Ingredient, error)
 	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error)
 	ListIngredients(ctx context.Context, arg ListIngredientsParams) ([]Ingredient, error)
+	ListOwners(ctx context.Context) ([]Owner, error)
 	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
-	ListTables(ctx context.Context) ([]Table, error)
-	ListUsersByRestaurant(ctx context.Context, restaurantID int32) ([]User, error)
-	ListWaitresses(ctx context.Context) ([]int64, error)
-	RemoveWaitressFromTable(ctx context.Context, tableID int64) error
+	ListTables(ctx context.Context, venueID int32) ([]Table, error)
+	ListTerminalsByVenue(ctx context.Context, venueID int32) ([]PosTerminal, error)
+	ListUsersByVenue(ctx context.Context, venueID int32) ([]User, error)
+	ListVenuesByOwner(ctx context.Context, ownerID int32) ([]Venue, error)
 	RevokeSession(ctx context.Context, refreshToken string) error
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateIngredient(ctx context.Context, arg UpdateIngredientParams) (Ingredient, error)
+	UpdateOwner(ctx context.Context, arg UpdateOwnerParams) (Owner, error)
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
-	UpdateRestaurant(ctx context.Context, arg UpdateRestaurantParams) (Restaurant, error)
 	UpdateTable(ctx context.Context, arg UpdateTableParams) error
-	// Cambiado: id -> id_table
 	UpdateTableStatus(ctx context.Context, arg UpdateTableStatusParams) (Table, error)
+	UpdateTerminal(ctx context.Context, arg UpdateTerminalParams) (PosTerminal, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
+	UpdateUserLastAccess(ctx context.Context, id int32) error
+	UpdateVenue(ctx context.Context, arg UpdateVenueParams) (Venue, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -38,10 +38,10 @@ func generateValidToken(secret []byte, roleID int, expired bool) string {
 	}
 
 	claims := jwt.MapClaims{
-		"sub":           float64(123),
-		"role_id":       float64(roleID),
-		"restaurant_id": float64(1),
-		"exp":           exp,
+		"sub":      float64(123),
+		"role_id":  float64(roleID),
+		"venue_id": float64(1),
+		"exp":      exp,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	s, _ := token.SignedString(secret)

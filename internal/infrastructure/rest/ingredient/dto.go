@@ -22,3 +22,10 @@ type IngredientResponse struct {
 	Stock         int64  `json:"stock"`
 	CreatedAt     string `json:"created_at"`
 }
+
+// UpdateStockRequest para PATCH /ingredientes/:id/stock
+type UpdateStockRequest struct {
+	Cantidad       int64  `json:"cantidad" binding:"required"`
+	TipoMovimiento string `json:"tipo_movimiento" binding:"required"`
+	Motivo         string `json:"motivo"`
+}

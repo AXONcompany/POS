@@ -13,24 +13,32 @@ import (
 
 const createProduct = `-- name: CreateProduct :one
 insert into products (
+  venue_id,
   product_name,
   sales_price,
   is_active
-) values ($1, $2, $3)
-returning id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
+) values ($1, $2, $3, $4)
+returning id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
 `
 
 type CreateProductParams struct {
+	VenueID     int32          `json:"venue_id"`
 	ProductName string         `json:"product_name"`
 	SalesPrice  pgtype.Numeric `json:"sales_price"`
 	IsActive    bool           `json:"is_active"`
 }
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
-	row := q.db.QueryRow(ctx, createProduct, arg.ProductName, arg.SalesPrice, arg.IsActive)
+	row := q.db.QueryRow(ctx, createProduct,
+		arg.VenueID,
+		arg.ProductName,
+		arg.SalesPrice,
+		arg.IsActive,
+	)
 	var i Product
 	err := row.Scan(
 		&i.ID,
+		&i.VenueID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -44,25 +52,36 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 const deleteProduct = `-- name: DeleteProduct :exec
 update products
 set deleted_at = now()
-where id = $1 and deleted_at is null
+where id = $1 and venue_id = $2 and deleted_at is null
 `
 
-func (q *Queries) DeleteProduct(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, deleteProduct, id)
+type DeleteProductParams struct {
+	ID      int64 `json:"id"`
+	VenueID int32 `json:"venue_id"`
+}
+
+func (q *Queries) DeleteProduct(ctx context.Context, arg DeleteProductParams) error {
+	_, err := q.db.Exec(ctx, deleteProduct, arg.ID, arg.VenueID)
 	return err
 }
 
 const getProduct = `-- name: GetProduct :one
-select id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
+select id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
 from products
-where id = $1 and deleted_at is null
+where id = $1 and venue_id = $2 and deleted_at is null
 `
 
-func (q *Queries) GetProduct(ctx context.Context, id int64) (Product, error) {
-	row := q.db.QueryRow(ctx, getProduct, id)
+type GetProductParams struct {
+	ID      int64 `json:"id"`
+	VenueID int32 `json:"venue_id"`
+}
+
+func (q *Queries) GetProduct(ctx context.Context, arg GetProductParams) (Product, error) {
+	row := q.db.QueryRow(ctx, getProduct, arg.ID, arg.VenueID)
 	var i Product
 	err := row.Scan(
 		&i.ID,
+		&i.VenueID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -74,20 +93,21 @@ func (q *Queries) GetProduct(ctx context.Context, id int64) (Product, error) {
 }
 
 const listProducts = `-- name: ListProducts :many
-select id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
+select id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
 from products
-where deleted_at is null
+where venue_id = $1 and deleted_at is null
 order by id
-limit $1 offset $2
+limit $2 offset $3
 `
 
 type ListProductsParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	VenueID int32 `json:"venue_id"`
+	Limit   int32 `json:"limit"`
+	Offset  int32 `json:"offset"`
 }
 
 func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error) {
-	rows, err := q.db.Query(ctx, listProducts, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listProducts, arg.VenueID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +117,7 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 		var i Product
 		if err := rows.Scan(
 			&i.ID,
+			&i.VenueID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -117,16 +138,17 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 const updateProduct = `-- name: UpdateProduct :one
 update products
 set
-  product_name = $2,
-  sales_price = $3,
-  is_active = $4,
+  product_name = $3,
+  sales_price = $4,
+  is_active = $5,
   updated_at = now()
-where id = $1 and deleted_at is null
-returning id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
+where id = $1 and venue_id = $2 and deleted_at is null
+returning id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
 `
 
 type UpdateProductParams struct {
 	ID          int64          `json:"id"`
+	VenueID     int32          `json:"venue_id"`
 	ProductName string         `json:"product_name"`
 	SalesPrice  pgtype.Numeric `json:"sales_price"`
 	IsActive    bool           `json:"is_active"`
@@ -135,6 +157,7 @@ type UpdateProductParams struct {
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error) {
 	row := q.db.QueryRow(ctx, updateProduct,
 		arg.ID,
+		arg.VenueID,
 		arg.ProductName,
 		arg.SalesPrice,
 		arg.IsActive,
@@ -142,6 +165,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (P
 	var i Product
 	err := row.Scan(
 		&i.ID,
+		&i.VenueID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,

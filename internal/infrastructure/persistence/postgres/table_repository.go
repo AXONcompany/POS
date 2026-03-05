@@ -20,6 +20,7 @@ func NewTableRepository(db *DB) *TableRepository {
 
 func (r *TableRepository) Create(ctx context.Context, tbl *table.Table) error {
 	params := sqlc.CreateTableParams{
+		VenueID:     int32(tbl.VenueID),
 		TableNumber: int32(tbl.Number),
 		Capacity:    int32(tbl.Capacity),
 		Status:      tbl.Status,
@@ -46,8 +47,8 @@ func (r *TableRepository) Create(ctx context.Context, tbl *table.Table) error {
 	return nil
 }
 
-func (r *TableRepository) FindAll(ctx context.Context) ([]table.Table, error) {
-	rows, err := r.queries.ListTables(ctx)
+func (r *TableRepository) FindAll(ctx context.Context, venueID int) ([]table.Table, error) {
+	rows, err := r.queries.ListTables(ctx, int32(venueID))
 	if err != nil {
 		return nil, err
 	}
@@ -59,8 +60,11 @@ func (r *TableRepository) FindAll(ctx context.Context) ([]table.Table, error) {
 	return tables, nil
 }
 
-func (r *TableRepository) FindByID(ctx context.Context, id int64) (*table.Table, error) {
-	row, err := r.queries.GetTable(ctx, id)
+func (r *TableRepository) FindByID(ctx context.Context, id int64, venueID int) (*table.Table, error) {
+	row, err := r.queries.GetTable(ctx, sqlc.GetTableParams{
+		IDTable: id,
+		VenueID: int32(venueID),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -68,9 +72,11 @@ func (r *TableRepository) FindByID(ctx context.Context, id int64) (*table.Table,
 	t := r.mapToDomain(row)
 	return &t, nil
 }
-func (r *TableRepository) Update(ctx context.Context, id int64, updates *table.TableUpdates) error {
+
+func (r *TableRepository) Update(ctx context.Context, id int64, venueID int, updates *table.TableUpdates) error {
 	params := sqlc.UpdateTableParams{
 		IDTable: id,
+		VenueID: int32(venueID),
 	}
 
 	if updates.Number != nil {
@@ -103,42 +109,17 @@ func (r *TableRepository) Update(ctx context.Context, id int64, updates *table.T
 	return r.queries.UpdateTable(ctx, params)
 }
 
-func (r *TableRepository) Delete(ctx context.Context, id int64) error {
-	return r.queries.DeleteTable(ctx, id)
+func (r *TableRepository) Delete(ctx context.Context, id int64, venueID int) error {
+	return r.queries.DeleteTable(ctx, sqlc.DeleteTableParams{
+		IDTable: id,
+		VenueID: int32(venueID),
+	})
 }
 
-func (r *TableRepository) AssignWaitressToTable(ctx context.Context, tableID int64, waitressID int64) error {
-	params := sqlc.AssignWaitressToTableParams{
-		TableID:    tableID,
-		WaitressID: waitressID,
-	}
-	_, err := r.queries.AssignWaitressToTable(ctx, params)
-	return err
-}
-
-func (r *TableRepository) RemoveWaitressFromTable(ctx context.Context, tableID int64, waitressID int64) error {
-	return r.queries.RemoveWaitressFromTable(ctx, tableID)
-}
-
-func (r *TableRepository) FindWaitressesByTableID(ctx context.Context, tableID int64) ([]table.TableWaitress, error) {
-
-	row, err := r.queries.GetWaitressByTable(ctx, tableID)
-	if err != nil {
-		return nil, err
-	}
-
-	return []table.TableWaitress{
-		{
-			ID:         row.ID,
-			TableID:    row.TableID,
-			WaitressID: row.WaitressID,
-			CreatedAt:  row.CreatedAt.Time,
-		},
-	}, nil
-}
 func (r *TableRepository) mapToDomain(row sqlc.Table) table.Table {
 	t := table.Table{
 		ID:        row.IDTable,
+		VenueID:   int(row.VenueID),
 		Number:    int(row.TableNumber),
 		Capacity:  int(row.Capacity),
 		Status:    row.Status,

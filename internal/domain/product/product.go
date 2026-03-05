@@ -4,6 +4,7 @@ import "time"
 
 type Product struct {
 	ID         int64
+	VenueID    int
 	Name       string
 	SalesPrice float64
 	IsActive   bool

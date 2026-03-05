@@ -11,46 +11,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const assignWaitressToTable = `-- name: AssignWaitressToTable :one
-
-
-INSERT INTO table_waitress (
-  table_id, waitress_id
-) VALUES (
-  $1, $2
-) RETURNING id, created_at, updated_at, deleted_at, table_id, waitress_id
-`
-
-type AssignWaitressToTableParams struct {
-	TableID    int64 `json:"table_id"`
-	WaitressID int64 `json:"waitress_id"`
-}
-
-// Cambiado: id -> id_table
-// SECCION: Asignación de Mesas (Table Waitress) --
-func (q *Queries) AssignWaitressToTable(ctx context.Context, arg AssignWaitressToTableParams) (TableWaitress, error) {
-	row := q.db.QueryRow(ctx, assignWaitressToTable, arg.TableID, arg.WaitressID)
-	var i TableWaitress
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-		&i.TableID,
-		&i.WaitressID,
-	)
-	return i, err
-}
-
 const createTable = `-- name: CreateTable :one
 INSERT INTO tables (
-  table_number, status, capacity, arrival_time
+  venue_id, table_number, status, capacity, arrival_time
 ) VALUES (
-  $1, $2, $3, $4
-) RETURNING id_table, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time
+  $1, $2, $3, $4, $5
+) RETURNING id_table, venue_id, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time
 `
 
 type CreateTableParams struct {
+	VenueID     int32              `json:"venue_id"`
 	TableNumber int32              `json:"table_number"`
 	Status      string             `json:"status"`
 	Capacity    int32              `json:"capacity"`
@@ -59,6 +29,7 @@ type CreateTableParams struct {
 
 func (q *Queries) CreateTable(ctx context.Context, arg CreateTableParams) (Table, error) {
 	row := q.db.QueryRow(ctx, createTable,
+		arg.VenueID,
 		arg.TableNumber,
 		arg.Status,
 		arg.Capacity,
@@ -67,6 +38,7 @@ func (q *Queries) CreateTable(ctx context.Context, arg CreateTableParams) (Table
 	var i Table
 	err := row.Scan(
 		&i.IDTable,
+		&i.VenueID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -79,27 +51,36 @@ func (q *Queries) CreateTable(ctx context.Context, arg CreateTableParams) (Table
 }
 
 const deleteTable = `-- name: DeleteTable :exec
-
 DELETE FROM tables
-WHERE id_table = $1
+WHERE id_table = $1 AND venue_id = $2
 `
 
-// Cambiado: id -> id_table
-func (q *Queries) DeleteTable(ctx context.Context, idTable int64) error {
-	_, err := q.db.Exec(ctx, deleteTable, idTable)
+type DeleteTableParams struct {
+	IDTable int64 `json:"id_table"`
+	VenueID int32 `json:"venue_id"`
+}
+
+func (q *Queries) DeleteTable(ctx context.Context, arg DeleteTableParams) error {
+	_, err := q.db.Exec(ctx, deleteTable, arg.IDTable, arg.VenueID)
 	return err
 }
 
 const getTable = `-- name: GetTable :one
-SELECT id_table, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time FROM tables
-WHERE id_table = $1 LIMIT 1
+SELECT id_table, venue_id, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time FROM tables
+WHERE id_table = $1 AND venue_id = $2 LIMIT 1
 `
 
-func (q *Queries) GetTable(ctx context.Context, idTable int64) (Table, error) {
-	row := q.db.QueryRow(ctx, getTable, idTable)
+type GetTableParams struct {
+	IDTable int64 `json:"id_table"`
+	VenueID int32 `json:"venue_id"`
+}
+
+func (q *Queries) GetTable(ctx context.Context, arg GetTableParams) (Table, error) {
+	row := q.db.QueryRow(ctx, getTable, arg.IDTable, arg.VenueID)
 	var i Table
 	err := row.Scan(
 		&i.IDTable,
+		&i.VenueID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -111,32 +92,14 @@ func (q *Queries) GetTable(ctx context.Context, idTable int64) (Table, error) {
 	return i, err
 }
 
-const getWaitressByTable = `-- name: GetWaitressByTable :one
-SELECT id, created_at, updated_at, deleted_at, table_id, waitress_id FROM table_waitress
-WHERE table_id = $1 LIMIT 1
-`
-
-func (q *Queries) GetWaitressByTable(ctx context.Context, tableID int64) (TableWaitress, error) {
-	row := q.db.QueryRow(ctx, getWaitressByTable, tableID)
-	var i TableWaitress
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-		&i.TableID,
-		&i.WaitressID,
-	)
-	return i, err
-}
-
 const listTables = `-- name: ListTables :many
-SELECT id_table, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time FROM tables
+SELECT id_table, venue_id, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time FROM tables
+WHERE venue_id = $1
 ORDER BY table_number
 `
 
-func (q *Queries) ListTables(ctx context.Context) ([]Table, error) {
-	rows, err := q.db.Query(ctx, listTables)
+func (q *Queries) ListTables(ctx context.Context, venueID int32) ([]Table, error) {
+	rows, err := q.db.Query(ctx, listTables, venueID)
 	if err != nil {
 		return nil, err
 	}
@@ -146,6 +109,7 @@ func (q *Queries) ListTables(ctx context.Context) ([]Table, error) {
 		var i Table
 		if err := rows.Scan(
 			&i.IDTable,
+			&i.VenueID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -164,16 +128,6 @@ func (q *Queries) ListTables(ctx context.Context) ([]Table, error) {
 	return items, nil
 }
 
-const removeWaitressFromTable = `-- name: RemoveWaitressFromTable :exec
-DELETE FROM table_waitress
-WHERE table_id = $1
-`
-
-func (q *Queries) RemoveWaitressFromTable(ctx context.Context, tableID int64) error {
-	_, err := q.db.Exec(ctx, removeWaitressFromTable, tableID)
-	return err
-}
-
 const updateTable = `-- name: UpdateTable :exec
 UPDATE tables
 SET 
@@ -182,7 +136,7 @@ SET
     status       = COALESCE($3, status),
     arrival_time = COALESCE($4, arrival_time),
     updated_at   = now()
-WHERE id_table = $5
+WHERE id_table = $5 AND venue_id = $6
 `
 
 type UpdateTableParams struct {
@@ -191,6 +145,7 @@ type UpdateTableParams struct {
 	Status      pgtype.Text        `json:"status"`
 	ArrivalTime pgtype.Timestamptz `json:"arrival_time"`
 	IDTable     int64              `json:"id_table"`
+	VenueID     int32              `json:"venue_id"`
 }
 
 func (q *Queries) UpdateTable(ctx context.Context, arg UpdateTableParams) error {
@@ -200,30 +155,36 @@ func (q *Queries) UpdateTable(ctx context.Context, arg UpdateTableParams) error 
 		arg.Status,
 		arg.ArrivalTime,
 		arg.IDTable,
+		arg.VenueID,
 	)
 	return err
 }
 
 const updateTableStatus = `-- name: UpdateTableStatus :one
-
 UPDATE tables
-SET status = $2, arrival_time = $3, updated_at = now()
-WHERE id_table = $1 -- Cambiado: id -> id_table
-RETURNING id_table, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time
+SET status = $3, arrival_time = $4, updated_at = now()
+WHERE id_table = $1 AND venue_id = $2
+RETURNING id_table, venue_id, created_at, updated_at, deleted_at, table_number, capacity, status, arrival_time
 `
 
 type UpdateTableStatusParams struct {
 	IDTable     int64              `json:"id_table"`
+	VenueID     int32              `json:"venue_id"`
 	Status      string             `json:"status"`
 	ArrivalTime pgtype.Timestamptz `json:"arrival_time"`
 }
 
-// Cambiado: id -> id_table
 func (q *Queries) UpdateTableStatus(ctx context.Context, arg UpdateTableStatusParams) (Table, error) {
-	row := q.db.QueryRow(ctx, updateTableStatus, arg.IDTable, arg.Status, arg.ArrivalTime)
+	row := q.db.QueryRow(ctx, updateTableStatus,
+		arg.IDTable,
+		arg.VenueID,
+		arg.Status,
+		arg.ArrivalTime,
+	)
 	var i Table
 	err := row.Scan(
 		&i.IDTable,
+		&i.VenueID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,

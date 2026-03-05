@@ -8,16 +8,22 @@ import (
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/ingredient"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/middleware"
 	orderrest "github.com/AXONcompany/POS/internal/infrastructure/rest/order"
+	"github.com/AXONcompany/POS/internal/infrastructure/rest/owner"
+	"github.com/AXONcompany/POS/internal/infrastructure/rest/payment"
+	"github.com/AXONcompany/POS/internal/infrastructure/rest/pos"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/product"
+	"github.com/AXONcompany/POS/internal/infrastructure/rest/report"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/table"
+	"github.com/AXONcompany/POS/internal/infrastructure/rest/user"
+	"github.com/AXONcompany/POS/internal/infrastructure/rest/venue"
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler, authHandler *auth.Handler, orderHandler *orderrest.Handler, tableHandler *table.Handler, jwtSecret []byte) {
+func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler, authHandler *auth.Handler, orderHandler *orderrest.Handler, tableHandler *table.Handler, userHandler *user.Handler, paymentHandler *payment.Handler, reportHandler *report.Handler, ownerHandler *owner.Handler, venueHandler *venue.Handler, posHandler *pos.Handler, jwtSecret []byte) {
 
 	log.Printf("RegisterRouters called, ingredientHandler is nil: %v", ingredientHandler == nil)
 
-	//ver si está vivo
+	// Health checks
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
@@ -28,48 +34,92 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 		c.String(http.StatusOK, "server say: pong")
 	})
 
-	// Roles mappings (adjust map to your DB setup)
+	// Roles mappings
 	const RolePropietario = 1
 	const RoleCajero = 2
 	const RoleMesero = 3
 
+	// --- AUTH (publico) ---
+	authPublic := r.Group("/auth")
+	{
+		authPublic.POST("/login", authHandler.Login)
+		authPublic.POST("/register-owner", authHandler.RegisterOwner)
+	}
+
+	// --- AUTH (protegido) ---
+	authProtected := r.Group("/auth")
+	authProtected.Use(middleware.AuthMiddleware(jwtSecret))
+	{
+		authProtected.POST("/register", middleware.RequireRoles(RolePropietario, RoleCajero), authHandler.Register)
+		authProtected.GET("/me", authHandler.Me)
+		authProtected.POST("/logout", authHandler.Logout)
+	}
+
 	// Protected API Group
-	api := r.Group("/api/v1")
+	api := r.Group("")
 	api.Use(middleware.AuthMiddleware(jwtSecret))
 	{
-		// --- TABLES ---
-		tables := api.Group("/tables")
+		// --- PROPIETARIO ---
+		propietario := api.Group("/propietario")
+		propietario.Use(middleware.RequireRoles(RolePropietario))
 		{
-			tables.GET("", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), tableHandler.GetAll)
-			tables.GET("/:id", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), tableHandler.GetByID)
-
-			tables.POST("", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.Create)
-			tables.PATCH("/:id", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.Update)
-			tables.DELETE("/:id", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.Delete)
-			tables.POST("/:id/assign", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.AssignWaitress)
+			propietario.GET("", ownerHandler.GetMe)
+			propietario.PATCH("", ownerHandler.Update)
 		}
 
-		// --- INGREDIENTS ---
-		ingredients := api.Group("/ingredients")
-		ingredients.Use(middleware.RequireRoles(RolePropietario))
+		// --- SEDES ---
+		sedes := api.Group("/sedes")
+		sedes.Use(middleware.RequireRoles(RolePropietario))
 		{
-			ingredients.GET("", ingredientHandler.GetAll)
-			ingredients.GET("/report", ingredientHandler.GetInventoryReport)
-			ingredients.POST("", ingredientHandler.Create)
-			ingredients.GET("/:id", ingredientHandler.GetByID)
-			ingredients.PUT("/:id", ingredientHandler.Update)
-			ingredients.DELETE("/:id", ingredientHandler.Delete)
+			sedes.POST("", venueHandler.Create)
+			sedes.GET("", venueHandler.List)
+			sedes.GET("/:id", venueHandler.GetByID)
+			sedes.PATCH("/:id", venueHandler.Update)
 		}
 
-		// --- CATEGORIES ---
-		categories := api.Group("/categories")
-		categories.Use(middleware.RequireRoles(RolePropietario))
+		// --- TERMINALES POS ---
+		terminales := api.Group("/terminales")
+		terminales.Use(middleware.RequireRoles(RolePropietario))
 		{
-			categories.POST("", productHandler.CreateCategory)
-			categories.GET("", productHandler.GetAllCategories)
+			terminales.POST("", posHandler.Create)
+			terminales.GET("", posHandler.List)
+			terminales.GET("/:id", posHandler.GetByID)
+			terminales.PATCH("/:id", posHandler.Update)
 		}
 
-		// --- PRODUCTS ---
+		// --- MESAS ---
+		mesas := api.Group("/mesas")
+		{
+			mesas.GET("", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), tableHandler.GetAll)
+			mesas.GET("/:id", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), tableHandler.GetByID)
+
+			mesas.POST("", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.Create)
+			mesas.PATCH("/:id/estado", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.UpdateEstado)
+			mesas.DELETE("/:id", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.Delete)
+		}
+
+		// --- INGREDIENTES ---
+		ingredientes := api.Group("/ingredientes")
+		ingredientes.Use(middleware.RequireRoles(RolePropietario))
+		{
+			ingredientes.GET("", ingredientHandler.GetAll)
+			ingredientes.GET("/report", ingredientHandler.GetInventoryReport)
+			ingredientes.POST("", ingredientHandler.Create)
+			ingredientes.GET("/:id", ingredientHandler.GetByID)
+			ingredientes.PUT("/:id", ingredientHandler.Update)
+			ingredientes.PATCH("/:id/stock", ingredientHandler.UpdateStock)
+			ingredientes.DELETE("/:id", ingredientHandler.Delete)
+		}
+
+		// --- CATEGORIAS ---
+		categorias := api.Group("/categorias")
+		categorias.Use(middleware.RequireRoles(RolePropietario))
+		{
+			categorias.POST("", productHandler.CreateCategory)
+			categorias.GET("", productHandler.GetAllCategories)
+		}
+
+		// --- PRODUCTS (interno, mantener compatibilidad) ---
 		products := api.Group("/products")
 		products.Use(middleware.RequireRoles(RolePropietario))
 		{
@@ -87,18 +137,49 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 			menu.PATCH("/:id", middleware.RequireRoles(RolePropietario), productHandler.UpdateMenuItem)
 		}
 
-		// --- ORDERS ---
-		orders := api.Group("/orders")
+		// --- ORDENES ---
+		ordenes := api.Group("/ordenes")
 		{
-			// Both Mesero & Cajero can create orders
-			orders.POST("", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.CreateOrder)
-			orders.GET("", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.ListByTable)
-			orders.PATCH("/:id/status", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.UpdateOrderStatus)
+			ordenes.POST("", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.CreateOrder)
+			ordenes.GET("", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.ListByTable)
+			ordenes.GET("/:id", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.GetByID)
+			ordenes.POST("/:id/items", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.AddItems)
+			ordenes.DELETE("/:id/items/:item_id", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.CancelItem)
+			ordenes.POST("/:id/enviar-cocina", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.SendToKitchen)
+			ordenes.PATCH("/:id/status", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.UpdateOrderStatus)
+			ordenes.POST("/:id/dividir", middleware.RequireRoles(RoleCajero, RolePropietario), orderHandler.DivideOrder)
 
-			// Only Cajero & Propietario can checkout
-			checkout := orders.Group("/:id/checkout")
+			// Checkout
+			checkout := ordenes.Group("/:id/checkout")
 			checkout.Use(middleware.RequireRoles(RoleCajero, RolePropietario))
 			checkout.POST("", orderHandler.CheckoutOrder)
+		}
+
+		// --- USUARIOS ---
+		usuarios := api.Group("/usuarios")
+		{
+			usuarios.GET("", middleware.RequireRoles(RolePropietario), userHandler.GetAll)
+			usuarios.GET("/:id", middleware.RequireRoles(RolePropietario), userHandler.GetByID)
+			usuarios.PATCH("/:id", middleware.RequireRoles(RolePropietario), userHandler.Update)
+			usuarios.DELETE("/:id", middleware.RequireRoles(RolePropietario), userHandler.Delete)
+			usuarios.POST("/mesero", middleware.RequireRoles(RolePropietario, RoleCajero), authHandler.RegisterWaiter)
+		}
+
+		// --- PAGOS ---
+		pagos := api.Group("/pagos")
+		pagos.Use(middleware.RequireRoles(RoleCajero, RolePropietario))
+		{
+			pagos.POST("", paymentHandler.ProcessPayment)
+			pagos.GET("/:id/factura", paymentHandler.GetInvoice)
+		}
+
+		// --- REPORTES ---
+		reportes := api.Group("/reportes")
+		reportes.Use(middleware.RequireRoles(RolePropietario))
+		{
+			reportes.GET("/ventas", reportHandler.GetSalesReport)
+			reportes.GET("/inventario", reportHandler.GetInventoryReport)
+			reportes.GET("/propinas", reportHandler.GetTipsReport)
 		}
 	}
 

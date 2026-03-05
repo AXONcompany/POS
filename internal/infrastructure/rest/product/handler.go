@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/AXONcompany/POS/internal/domain/product"
+	"github.com/AXONcompany/POS/internal/infrastructure/rest/middleware"
 	usecase "github.com/AXONcompany/POS/internal/usecase/product"
 	"github.com/gin-gonic/gin"
 )
@@ -15,6 +16,11 @@ type Handler struct {
 
 func NewHandler(uc *usecase.Usecase) *Handler {
 	return &Handler{uc: uc}
+}
+
+func prodVenueID(c *gin.Context) int {
+	v, _ := c.Get(middleware.VenueIDKey)
+	return v.(int)
 }
 
 func toCategoryResponse(c *product.Category) CategoryResponse {
@@ -46,8 +52,10 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 		return
 	}
 
+	venueID := prodVenueID(c)
 	cat := product.Category{
-		Name: req.Name,
+		VenueID: venueID,
+		Name:    req.Name,
 	}
 
 	created, err := h.uc.CreateCategory(c.Request.Context(), cat)
@@ -63,7 +71,8 @@ func (h *Handler) GetAllCategories(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	cats, err := h.uc.GetAllCategories(c.Request.Context(), page, pageSize)
+	venueID := prodVenueID(c)
+	cats, err := h.uc.GetAllCategories(c.Request.Context(), venueID, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -90,7 +99,9 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		return
 	}
 
+	venueID := prodVenueID(c)
 	prod := product.Product{
+		VenueID:    venueID,
 		Name:       req.Name,
 		SalesPrice: req.SalesPrice,
 		IsActive:   req.IsActive,
@@ -109,7 +120,8 @@ func (h *Handler) GetAllProducts(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	prods, err := h.uc.GetAllProducts(c.Request.Context(), page, pageSize)
+	venueID := prodVenueID(c)
+	prods, err := h.uc.GetAllProducts(c.Request.Context(), venueID, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -142,7 +154,8 @@ func (h *Handler) AddIngredient(c *gin.Context) {
 		return
 	}
 
-	item, err := h.uc.AddIngredient(c.Request.Context(), productID, req.IngredientID, req.Quantity)
+	venueID := prodVenueID(c)
+	item, err := h.uc.AddIngredient(c.Request.Context(), venueID, productID, req.IngredientID, req.Quantity)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

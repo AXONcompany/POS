@@ -11,36 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createRestaurant = `-- name: CreateRestaurant :one
-INSERT INTO restaurants (
-  name, address, phone
-) VALUES (
-  $1, $2, $3
-)
-RETURNING id, name, address, phone, is_active, created_at, updated_at
-`
-
-type CreateRestaurantParams struct {
-	Name    string      `json:"name"`
-	Address pgtype.Text `json:"address"`
-	Phone   pgtype.Text `json:"phone"`
-}
-
-func (q *Queries) CreateRestaurant(ctx context.Context, arg CreateRestaurantParams) (Restaurant, error) {
-	row := q.db.QueryRow(ctx, createRestaurant, arg.Name, arg.Address, arg.Phone)
-	var i Restaurant
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Address,
-		&i.Phone,
-		&i.IsActive,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (
   user_id, refresh_token, expires_at, device_info, ip_address
@@ -82,15 +52,15 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
-  restaurant_id, role_id, name, email, password_hash
+  venue_id, role_id, name, email, password_hash
 ) VALUES (
   $1, $2, $3, $4, $5
 )
-RETURNING id, restaurant_id, role_id, name, email, password_hash, is_active, created_at, updated_at
+RETURNING id, venue_id, role_id, name, email, password_hash, is_active, created_at, updated_at, phone, last_access
 `
 
 type CreateUserParams struct {
-	RestaurantID int32  `json:"restaurant_id"`
+	VenueID      int32  `json:"venue_id"`
 	RoleID       int32  `json:"role_id"`
 	Name         string `json:"name"`
 	Email        string `json:"email"`
@@ -99,7 +69,7 @@ type CreateUserParams struct {
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser,
-		arg.RestaurantID,
+		arg.VenueID,
 		arg.RoleID,
 		arg.Name,
 		arg.Email,
@@ -108,7 +78,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.RestaurantID,
+		&i.VenueID,
 		&i.RoleID,
 		&i.Name,
 		&i.Email,
@@ -116,26 +86,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getRestaurantByID = `-- name: GetRestaurantByID :one
-SELECT id, name, address, phone, is_active, created_at, updated_at FROM restaurants
-WHERE id = $1 LIMIT 1
-`
-
-func (q *Queries) GetRestaurantByID(ctx context.Context, id int32) (Restaurant, error) {
-	row := q.db.QueryRow(ctx, getRestaurantByID, id)
-	var i Restaurant
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Address,
 		&i.Phone,
-		&i.IsActive,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.LastAccess,
 	)
 	return i, err
 }
@@ -186,7 +138,7 @@ func (q *Queries) GetSessionByToken(ctx context.Context, refreshToken string) (S
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, restaurant_id, role_id, name, email, password_hash, is_active, created_at, updated_at FROM users
+SELECT id, venue_id, role_id, name, email, password_hash, is_active, created_at, updated_at, phone, last_access FROM users
 WHERE email = $1 LIMIT 1
 `
 
@@ -195,7 +147,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.RestaurantID,
+		&i.VenueID,
 		&i.RoleID,
 		&i.Name,
 		&i.Email,
@@ -203,12 +155,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phone,
+		&i.LastAccess,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, restaurant_id, role_id, name, email, password_hash, is_active, created_at, updated_at FROM users
+SELECT id, venue_id, role_id, name, email, password_hash, is_active, created_at, updated_at, phone, last_access FROM users
 WHERE id = $1 LIMIT 1
 `
 
@@ -217,7 +171,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (User, error) {
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.RestaurantID,
+		&i.VenueID,
 		&i.RoleID,
 		&i.Name,
 		&i.Email,
@@ -225,18 +179,20 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (User, error) {
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phone,
+		&i.LastAccess,
 	)
 	return i, err
 }
 
-const listUsersByRestaurant = `-- name: ListUsersByRestaurant :many
-SELECT id, restaurant_id, role_id, name, email, password_hash, is_active, created_at, updated_at FROM users
-WHERE restaurant_id = $1
+const listUsersByVenue = `-- name: ListUsersByVenue :many
+SELECT id, venue_id, role_id, name, email, password_hash, is_active, created_at, updated_at, phone, last_access FROM users
+WHERE venue_id = $1
 ORDER BY name
 `
 
-func (q *Queries) ListUsersByRestaurant(ctx context.Context, restaurantID int32) ([]User, error) {
-	rows, err := q.db.Query(ctx, listUsersByRestaurant, restaurantID)
+func (q *Queries) ListUsersByVenue(ctx context.Context, venueID int32) ([]User, error) {
+	rows, err := q.db.Query(ctx, listUsersByVenue, venueID)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +202,7 @@ func (q *Queries) ListUsersByRestaurant(ctx context.Context, restaurantID int32)
 		var i User
 		if err := rows.Scan(
 			&i.ID,
-			&i.RestaurantID,
+			&i.VenueID,
 			&i.RoleID,
 			&i.Name,
 			&i.Email,
@@ -254,6 +210,8 @@ func (q *Queries) ListUsersByRestaurant(ctx context.Context, restaurantID int32)
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Phone,
+			&i.LastAccess,
 		); err != nil {
 			return nil, err
 		}
@@ -276,46 +234,6 @@ func (q *Queries) RevokeSession(ctx context.Context, refreshToken string) error 
 	return err
 }
 
-const updateRestaurant = `-- name: UpdateRestaurant :one
-UPDATE restaurants
-SET name = $2,
-    address = $3,
-    phone = $4,
-    is_active = $5,
-    updated_at = CURRENT_TIMESTAMP
-WHERE id = $1
-RETURNING id, name, address, phone, is_active, created_at, updated_at
-`
-
-type UpdateRestaurantParams struct {
-	ID       int32       `json:"id"`
-	Name     string      `json:"name"`
-	Address  pgtype.Text `json:"address"`
-	Phone    pgtype.Text `json:"phone"`
-	IsActive pgtype.Bool `json:"is_active"`
-}
-
-func (q *Queries) UpdateRestaurant(ctx context.Context, arg UpdateRestaurantParams) (Restaurant, error) {
-	row := q.db.QueryRow(ctx, updateRestaurant,
-		arg.ID,
-		arg.Name,
-		arg.Address,
-		arg.Phone,
-		arg.IsActive,
-	)
-	var i Restaurant
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Address,
-		&i.Phone,
-		&i.IsActive,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const updateUser = `-- name: UpdateUser :one
 UPDATE users
 SET name = $2,
@@ -324,7 +242,7 @@ SET name = $2,
     role_id = $5,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, restaurant_id, role_id, name, email, password_hash, is_active, created_at, updated_at
+RETURNING id, venue_id, role_id, name, email, password_hash, is_active, created_at, updated_at, phone, last_access
 `
 
 type UpdateUserParams struct {
@@ -346,7 +264,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.RestaurantID,
+		&i.VenueID,
 		&i.RoleID,
 		&i.Name,
 		&i.Email,
@@ -354,6 +272,19 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phone,
+		&i.LastAccess,
 	)
 	return i, err
+}
+
+const updateUserLastAccess = `-- name: UpdateUserLastAccess :exec
+UPDATE users
+SET last_access = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+func (q *Queries) UpdateUserLastAccess(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, updateUserLastAccess, id)
+	return err
 }

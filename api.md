@@ -1,249 +1,93 @@
-# POS Backend - API Reference
+# AXON POS API Documentation
 
-Esta documentación contiene todos los endpoints expuestos por el sistema POS para su consumo en el Frontend.
-Todos los endpoints requieren un **Access Token** enviado a través del header `Authorization` a excepción de los marcados como "Público".
+Esta es la documentación oficial de los endpoints de la API REST del sistema AXON POS.
 
-**Headers Globales Requeridos:**
-```http
-Content-Type: application/json
-Authorization: Bearer <vuestro_token_jwt>
-```
+## Base URL
+Todas las peticiones en producción van dirigidas al host raíz (ej. `http://localhost:8080`). 
+No hay prefijo `/api/v1` en la versión actual del router.
 
-**Esquema de Roles soportados:**
-- **Propietario** (Role ID: 1)
-- **Cajero** (Role ID: 2)
-- **Mesero** (Role ID: 3)
-
----
-
-## 1. Salud y Monitoreo (Público)
-Endpoints utilizados para monitorizar que el backend está corriendo.
-
-- **GET `/health`**: Retorna el estado en JSON `{"status": "ok"}`
-- **GET `/ping`**: Retorna string `"server say: pong"`
+## Autenticación y Autorización
+La API utiliza JSON Web Tokens (JWT) pasados mediante el header `Authorization: Bearer <token>`.
+Los endpoints protegidos validan el esquema RBAC (Control de Acceso Basado en Roles):
+- `Role 1`: PROPIETARIO
+- `Role 2`: CAJERO
+- `Role 3`: MESERO
 
 ---
 
-## 2. Autenticación (Público)
-
-### POST `/auth/login`
-Inicia sesión devolviendo el JWT necesario.
-
-**Request:**
-```json
-{
-  "email": "admin@test.com",
-  "password": "admin"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "refresh_token": "def456..."
-}
-```
+## 1. Salud y Monitoreo (Health)
+| Método | Endpoint  | Acceso  | Descripción                               |
+|--------|-----------|---------|-------------------------------------------|
+| `GET`  | `/health` | Público | Devuelve estado `200 OK` si el server vive|
+| `GET`  | `/ping`   | Público | Endpoint de prueba simple (pong)          |
 
 ---
 
-## 3. Mesas (Tables)
-Base URL: `/api/v1/tables`
-
-### GET `/`
-Obtiene la lista de todas las mesas.
-*Roles:* `Mesero`, `Cajero`, `Propietario`
-
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "table_number": 1,
-    "capacity": 4,
-    "status": "LIBRE",
-    "arrival_time": null,
-    "created_at": "2026-03-02T21:54:46Z"
-  }
-]
-```
-
-### POST `/`
-Crea una nueva mesa.
-*Roles:* `Cajero`, `Propietario`
-
-**Request:**
-```json
-{
-  "table_number": 2,
-  "capacity": 2,
-  "status": "LIBRE"
-}
-```
-
-### PATCH `/:id`
-Actualiza el estado o detalles de la mesa (Ej: De `LIBRE` a `OCUPADO`).
-*Roles:* `Cajero`, `Propietario`
-
-**Request:**
-```json
-{
-  "status": "OCUPADO"
-}
-```
-
-### POST `/:id/assign`
-Asigna un mesero a una mesa concreta.
-*Roles:* `Cajero`, `Propietario`
-
-**Request:**
-```json
-{
-  "waitress_id": 2
-}
-```
+## 2. Autenticación y Usuarios (`/auth`, `/usuarios`)
+| Método | Endpoint               | Rol Permitido         | Descripción                                                                 |
+|--------|------------------------|-----------------------|-----------------------------------------------------------------------------|
+| `POST` | `/auth/login`          | Público               | Login para cualquier usuario. Retorna JWT access+refresh token.             |
+| `POST` | `/auth/register-owner` | Público               | Registra un PROPIETARIO y su primera Sede (`Venue`). Crea sesión autologin. |
+| `POST` | `/auth/register`       | PROPIETARIO, CAJERO*  | Crear usuario genérico (*Cajeros solo pueden crear meseros).              |
+| `GET`  | `/auth/me`             | Sesión Válida         | Obtiene la información del usuario en base al token JWT.                    |
+| `POST` | `/auth/logout`         | Sesión Válida         | Revoca la sesión (invalidación del _refresh_token_ en BD).                  |
+| `GET`  | `/usuarios`            | PROPIETARIO           | Lista todos los usuarios de la Sede.                                        |
+| `POST` | `/usuarios/mesero`     | PROPIETARIO, CAJERO   | Crea un mesero con contraseña autogenerada (se devuelve 1 sola vez en texto)|
+| `GET`  | `/usuarios/:id`        | PROPIETARIO           | Obtiene detalles de un usuario específico.                                  |
+| `PATCH`| `/usuarios/:id`        | PROPIETARIO           | Actualiza datos de un usuario de la sede.                                   |
 
 ---
 
-## 4. Categorías de Productos
-Base URL: `/api/v1/categories`
-
-### GET `/`
-Listar categorías.
-*Roles:* `Propietario`
-
-### POST `/`
-Crear categoría de menú (Ej. Bebidas, Entradas).
-*Roles:* `Propietario`
-
-**Request:**
-```json
-{
-  "name": "Bebidas",
-  "description": "Bebidas frías y calientes"
-}
-```
+## 3. Configuración Administrativa (Sedes y Terminales)
+| Método | Endpoint          | Rol Permitido         | Descripción                                          |
+|--------|-------------------|-----------------------|------------------------------------------------------|
+| `GET`  | `/propietario`    | PROPIETARIO           | Detalles de la cuenta Padre del Franquiciado.        |
+| `PATCH`| `/propietario`    | PROPIETARIO           | Edita perfil del propietario.                        |
+| `GET`  | `/sedes`          | PROPIETARIO           | Lista sedes asociadas al propietario autenticado.    |
+| `POST` | `/sedes`          | PROPIETARIO           | Crea una nueva Sede.                                 |
+| `PATCH`| `/sedes/:id`      | PROPIETARIO           | Edita nombre, teléfono o dirección de una Sede.      |
+| `GET`  | `/terminales`     | PROPIETARIO           | Lista Cajas registradoras (POS) asignadas a la sede.|
+| `POST` | `/terminales`     | PROPIETARIO           | Crea una nueva caja.                                 |
+| `PATCH`| `/terminales/:id` | PROPIETARIO           | Edita nombre o suspende caja.                        |
 
 ---
 
-## 5. Ingredientes / Inventario
-Base URL: `/api/v1/ingredients`
-
-### GET `/` | GET `/:id` | DELETE `/:id`
-Manejo CRUD de los insumos.
-*Roles:* `Propietario`
-
-### POST `/`
-Agregar materia prima.
-*Roles:* `Propietario`
-
-**Request:**
-```json
-{
-  "name": "Azúcar",
-  "unit_of_measure": "kg",
-  "type": "dry",
-  "stock": 100
-}
-```
+## 4. Mesas (`/mesas`)
+| Método  | Endpoint           | Rol Permitido         | Descripción                                         |
+|---------|--------------------|-----------------------|-----------------------------------------------------|
+| `GET`   | `/mesas`           | MESERO, CAJERO, PROP  | Obtiene inventario de mesas de la Sede y su estado. |
+| `POST`  | `/mesas`           | CAJERO, PROPIETARIO   | Crea una mesa. Rq: `{numero, capacidad}`            |
+| `PATCH` | `/mesas/:id/estado`| CAJERO, PROPIETARIO   | Cambia la mesa a libre, ocupada, sucia, etc.        |
 
 ---
 
-## 6. Menú (Productos Finales)
-Base URL: `/api/v1/menu`
-
-### GET `/`
-Listado del menú oficial para ser mostrado en la App del Mesero.
-*Roles:* `Mesero`, `Cajero`, `Propietario`
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "name": "Coca Cola",
-      "sales_price": 2.5,
-      "is_active": true,
-      "created_at": "..."
-    }
-  ],
-  "page": 1,
-  "page_size": 20
-}
-```
-
-### POST `/`
-Registrar elemento de menú compuesto de sus ingredientes necesarios (Receta).
-*Roles:* `Propietario`
-
-**Request:**
-```json
-{
-  "name": "Coca Cola",
-  "sales_price": 2.5,
-  "description": "Lata de soda fría",
-  "category_id": 1,
-  "ingredients": [
-    {
-      "ingredient_id": 1,
-      "quantity": 0.1
-    }
-  ]
-}
-```
-
-### PATCH `/:id`
-Actualizar precio/estado de un platillo.
-*Roles:* `Propietario`
+## 5. Control de Inventario y Menú (`/ingredientes`, `/categorias`, `/products`, `/menu`)
+| Método | Endpoint                | Rol Permitido         | Descripción                                          |
+|--------|-------------------------|-----------------------|------------------------------------------------------|
+| `POST` | `/ingredientes`         | PROPIETARIO           | Registra insumo de bodega.                           |
+| `PATCH`| `/ingredientes/:id/stock`| PROPIETARIO          | Suman/Restan al inventario bodega.                   |
+| `POST` | `/categorias`           | PROPIETARIO           | Crea categoría de menú (Bebidas, Fuertes, etc.).     |
+| `POST` | `/menu`                 | PROPIETARIO           | Crea ítem de venta, asociándolo a la receta técnica.|
+| `GET`  | `/menu`                 | MESERO, CAJERO, PROP  | Catálogo con precios de venta y descripción.         |
 
 ---
 
-## 7. Órdenes (Operaciones de Venta)
-Base URL: `/api/v1/orders`
-
-### GET `/?table_id=1`
-Lista las órdenes actuales, opcionalmente filtrando por mesa.
-*Roles:* `Mesero`, `Cajero`, `Propietario`
-
-### POST `/`
-Nueva orden de cliente (Command originado en POS).
-*Roles:* `Mesero`, `Cajero`, `Propietario`
-
-**Request:**
-```json
-{
-  "table_id": 1,
-  "items": [
-    {
-      "product_id": 1,
-      "quantity": 2,
-      "unit_price": 2.5
-    }
-  ]
-}
-```
-
-### PATCH `/:id/status`
-Mover la orden por sus estados (PENDIENDO -> COCINANDO -> LISTA)
-*Roles:* `Mesero`, `Cajero`, `Propietario`
-
-**Request:**
-```json
-{
-  "status_id": 2
-}
-```
-
-### POST `/:id/checkout`
-Acción final de Caja cobrando el dinero de la orden (Pasando la orden a `PAID`).
-*Roles:* `Cajero`, `Propietario`
-
-**Response:**
-```json
-{
-  "status": "PAID"
-}
-```
+## 6. Comandas y Ventas (`/ordenes`, `/pagos`)
+| Método  | Endpoint                       | Rol Permitido         | Descripción                                                |
+|---------|--------------------------------|-----------------------|------------------------------------------------------------|
+| `POST`  | `/ordenes`                     | MESERO, CAJERO, PROP  | Inicia factura/pedido asociando mesa.                      |
+| `POST`  | `/ordenes/:id/items`           | MESERO, CAJERO, PROP  | Agrega platos/bebidas al pedido.                           |
+| `POST`  | `/ordenes/:id/enviar-cocina`   | MESERO, CAJERO, PROP  | Cierra adición y transfiere al Kitchen Display.            |
+| `POST`  | `/ordenes/:id/dividir`         | CAJERO, PROPIETARIO   | Divide cuenta (por montos o partes iguales).               |
+| `POST`  | `/pagos`                       | CAJERO, PROPIETARIO   | Realiza el cobro, marcando cierre de venta.                |
+| `GET`   | `/pagos/:id/factura`           | CAJERO, PROPIETARIO   | Emite recibo (Ticket Fiscal local o ticket digital).       |
 
 ---
+
+## 7. Reportes Gerenciales (`/reportes`)
+Requieren Rol **PROPIETARIO**. El CAJERO no puede acceder a reportes consolidados, solo la consola gerencial.
+| Método | Endpoint                 | Parámetros `Querystring` | Descripción |
+|--------|--------------------------|--------------------------|-------------|
+| `GET`  | `/reportes/ventas`       | `fecha_inicio`, `fecha_fin` | Resumen de ventas netas, consolidadas por categorías. |
+| `GET`  | `/reportes/inventario`   | ninguno                  | Cantidades disponibles de todos los ingredientes crudos. |
+| `GET`  | `/reportes/propinas`     | `fecha_inicio`, `fecha_fin` | Total de propinas procesadas y asiganción de tickets. |

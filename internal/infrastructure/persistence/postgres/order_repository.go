@@ -26,11 +26,11 @@ func (r *OrderRepository) Create(ctx context.Context, o *domainOrder.Order) (*do
 
 	// Insert order
 	query := `
-		INSERT INTO orders (restaurant_id, table_id, user_id, status_id, total_amount)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO orders (venue_id, table_id, user_id, pos_terminal_id, status_id, total_amount)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, updated_at
 	`
-	err = tx.QueryRow(ctx, query, o.RestaurantID, o.TableID, o.UserID, o.StatusID, o.TotalAmount).Scan(&o.ID, &o.CreatedAt, &o.UpdatedAt)
+	err = tx.QueryRow(ctx, query, o.VenueID, o.TableID, o.UserID, o.POSTerminalID, o.StatusID, o.TotalAmount).Scan(&o.ID, &o.CreatedAt, &o.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert order: %w", err)
 	}
@@ -65,16 +65,16 @@ func (r *OrderRepository) Create(ctx context.Context, o *domainOrder.Order) (*do
 	return o, nil
 }
 
-func (r *OrderRepository) GetByID(ctx context.Context, id int64, restaurantID int) (*domainOrder.Order, error) {
+func (r *OrderRepository) GetByID(ctx context.Context, id int64, venueID int) (*domainOrder.Order, error) {
 	query := `
-		SELECT o.id, o.restaurant_id, o.table_id, o.user_id, o.status_id, o.total_amount, o.created_at, o.updated_at, os.name as status
+		SELECT o.id, o.venue_id, o.table_id, o.user_id, o.pos_terminal_id, o.status_id, o.total_amount, o.created_at, o.updated_at, os.name as status
 		FROM orders o
 		JOIN order_statuses os ON o.status_id = os.id
-		WHERE o.id = $1 AND o.restaurant_id = $2 AND o.deleted_at IS NULL
+		WHERE o.id = $1 AND o.venue_id = $2 AND o.deleted_at IS NULL
 	`
 	var o domainOrder.Order
-	err := r.db.Pool.QueryRow(ctx, query, id, restaurantID).Scan(
-		&o.ID, &o.RestaurantID, &o.TableID, &o.UserID, &o.StatusID, &o.TotalAmount, &o.CreatedAt, &o.UpdatedAt, &o.Status,
+	err := r.db.Pool.QueryRow(ctx, query, id, venueID).Scan(
+		&o.ID, &o.VenueID, &o.TableID, &o.UserID, &o.POSTerminalID, &o.StatusID, &o.TotalAmount, &o.CreatedAt, &o.UpdatedAt, &o.Status,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -85,7 +85,7 @@ func (r *OrderRepository) GetByID(ctx context.Context, id int64, restaurantID in
 
 	// Get items
 	itemsQuery := `
-		SELECT id, order_id, product_id, quantity, unit_price, notes, created_at, updated_at
+		SELECT id, order_id, product_id, quantity, unit_price, notes, created_at
 		FROM order_items
 		WHERE order_id = $1
 	`
@@ -97,7 +97,7 @@ func (r *OrderRepository) GetByID(ctx context.Context, id int64, restaurantID in
 
 	for rows.Next() {
 		var item domainOrder.OrderItem
-		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID, &item.Quantity, &item.UnitPrice, &item.Notes, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID, &item.Quantity, &item.UnitPrice, &item.Notes, &item.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan order item: %w", err)
 		}
 		o.Items = append(o.Items, item)
@@ -106,13 +106,13 @@ func (r *OrderRepository) GetByID(ctx context.Context, id int64, restaurantID in
 	return &o, nil
 }
 
-func (r *OrderRepository) UpdateStatus(ctx context.Context, id int64, restaurantID int, statusID int) error {
+func (r *OrderRepository) UpdateStatus(ctx context.Context, id int64, venueID int, statusID int) error {
 	query := `
 		UPDATE orders 
 		SET status_id = $1, updated_at = NOW()
-		WHERE id = $2 AND restaurant_id = $3 AND deleted_at IS NULL
+		WHERE id = $2 AND venue_id = $3 AND deleted_at IS NULL
 	`
-	cmd, err := r.db.Pool.Exec(ctx, query, statusID, id, restaurantID)
+	cmd, err := r.db.Pool.Exec(ctx, query, statusID, id, venueID)
 	if err != nil {
 		return fmt.Errorf("update status: %w", err)
 	}
@@ -123,15 +123,15 @@ func (r *OrderRepository) UpdateStatus(ctx context.Context, id int64, restaurant
 	return nil
 }
 
-func (r *OrderRepository) ListByTable(ctx context.Context, tableID int64, restaurantID int) ([]domainOrder.Order, error) {
+func (r *OrderRepository) ListByTable(ctx context.Context, tableID int64, venueID int) ([]domainOrder.Order, error) {
 	query := `
-		SELECT o.id, o.restaurant_id, o.table_id, o.user_id, o.status_id, o.total_amount, o.created_at, o.updated_at, os.name as status
+		SELECT o.id, o.venue_id, o.table_id, o.user_id, o.pos_terminal_id, o.status_id, o.total_amount, o.created_at, o.updated_at, os.name as status
 		FROM orders o
 		JOIN order_statuses os ON o.status_id = os.id
-		WHERE o.table_id = $1 AND o.restaurant_id = $2 AND o.deleted_at IS NULL
+		WHERE o.table_id = $1 AND o.venue_id = $2 AND o.deleted_at IS NULL
 		ORDER BY o.created_at DESC
 	`
-	rows, err := r.db.Pool.Query(ctx, query, tableID, restaurantID)
+	rows, err := r.db.Pool.Query(ctx, query, tableID, venueID)
 	if err != nil {
 		return nil, fmt.Errorf("list orders by table query: %w", err)
 	}
@@ -140,7 +140,7 @@ func (r *OrderRepository) ListByTable(ctx context.Context, tableID int64, restau
 	var orders []domainOrder.Order
 	for rows.Next() {
 		var o domainOrder.Order
-		if err := rows.Scan(&o.ID, &o.RestaurantID, &o.TableID, &o.UserID, &o.StatusID, &o.TotalAmount, &o.CreatedAt, &o.UpdatedAt, &o.Status); err != nil {
+		if err := rows.Scan(&o.ID, &o.VenueID, &o.TableID, &o.UserID, &o.POSTerminalID, &o.StatusID, &o.TotalAmount, &o.CreatedAt, &o.UpdatedAt, &o.Status); err != nil {
 			return nil, fmt.Errorf("scan order: %w", err)
 		}
 		orders = append(orders, o)

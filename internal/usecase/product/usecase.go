@@ -11,19 +11,19 @@ import (
 
 type ProductRepository interface {
 	CreateProduct(ctx context.Context, p product.Product) (*product.Product, error)
-	GetByID(ctx context.Context, id int64) (*product.Product, error)
-	GetAllProducts(ctx context.Context, page, pageSize int) ([]product.Product, error)
+	GetByID(ctx context.Context, id int64, venueID int) (*product.Product, error)
+	GetAllProducts(ctx context.Context, venueID int, page, pageSize int) ([]product.Product, error)
 	UpdateProduct(ctx context.Context, p product.Product) (*product.Product, error)
-	DeleteProduct(ctx context.Context, id int64) error
+	DeleteProduct(ctx context.Context, id int64, venueID int) error
 	CreateProductWithRecipe(ctx context.Context, p product.Product, items []product.RecipeItem) (*product.Product, error)
 }
 
 type CategoryRepository interface {
 	CreateCategory(ctx context.Context, c product.Category) (*product.Category, error)
-	GetByID(ctx context.Context, id int64) (*product.Category, error)
-	GetAllCategories(ctx context.Context, page, pageSize int) ([]product.Category, error)
+	GetByID(ctx context.Context, id int64, venueID int) (*product.Category, error)
+	GetAllCategories(ctx context.Context, venueID int, page, pageSize int) ([]product.Category, error)
 	UpdateCategory(ctx context.Context, c product.Category) (*product.Category, error)
-	DeleteCategory(ctx context.Context, id int64) error
+	DeleteCategory(ctx context.Context, id int64, venueID int) error
 }
 
 type RecipeRepository interface {
@@ -59,11 +59,11 @@ func (s *Usecase) CreateCategory(ctx context.Context, c product.Category) (*prod
 	return created, nil
 }
 
-func (s *Usecase) GetCategory(ctx context.Context, id int64) (*product.Category, error) {
+func (s *Usecase) GetCategory(ctx context.Context, id int64, venueID int) (*product.Category, error) {
 	if id <= 0 {
 		return nil, product.ErrInvalidID
 	}
-	c, err := s.categoryRepo.GetByID(ctx, id)
+	c, err := s.categoryRepo.GetByID(ctx, id, venueID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, product.ErrCategoryNotFound
@@ -73,17 +73,17 @@ func (s *Usecase) GetCategory(ctx context.Context, id int64) (*product.Category,
 	return c, nil
 }
 
-func (s *Usecase) GetAllCategories(ctx context.Context, page, pageSize int) ([]product.Category, error) {
+func (s *Usecase) GetAllCategories(ctx context.Context, venueID int, page, pageSize int) ([]product.Category, error) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	return s.categoryRepo.GetAllCategories(ctx, page, pageSize)
+	return s.categoryRepo.GetAllCategories(ctx, venueID, page, pageSize)
 }
 
-func (s *Usecase) UpdateCategory(ctx context.Context, id int64, name string) (*product.Category, error) {
+func (s *Usecase) UpdateCategory(ctx context.Context, id int64, venueID int, name string) (*product.Category, error) {
 	if id <= 0 {
 		return nil, product.ErrInvalidID
 	}
@@ -91,7 +91,7 @@ func (s *Usecase) UpdateCategory(ctx context.Context, id int64, name string) (*p
 		return nil, product.ErrNameEmpty
 	}
 
-	current, err := s.GetCategory(ctx, id)
+	current, err := s.GetCategory(ctx, id, venueID)
 	if err != nil {
 		return nil, err
 	}
@@ -100,11 +100,11 @@ func (s *Usecase) UpdateCategory(ctx context.Context, id int64, name string) (*p
 	return s.categoryRepo.UpdateCategory(ctx, *current)
 }
 
-func (s *Usecase) DeleteCategory(ctx context.Context, id int64) error {
+func (s *Usecase) DeleteCategory(ctx context.Context, id int64, venueID int) error {
 	if id <= 0 {
 		return product.ErrInvalidID
 	}
-	return s.categoryRepo.DeleteCategory(ctx, id)
+	return s.categoryRepo.DeleteCategory(ctx, id, venueID)
 }
 
 // Product Methods
@@ -124,11 +124,11 @@ func (s *Usecase) CreateProduct(ctx context.Context, p product.Product) (*produc
 	return created, nil
 }
 
-func (s *Usecase) GetProduct(ctx context.Context, id int64) (*product.Product, error) {
+func (s *Usecase) GetProduct(ctx context.Context, id int64, venueID int) (*product.Product, error) {
 	if id <= 0 {
 		return nil, product.ErrInvalidID
 	}
-	p, err := s.productRepo.GetByID(ctx, id)
+	p, err := s.productRepo.GetByID(ctx, id, venueID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, product.ErrProductNotFound
@@ -138,27 +138,26 @@ func (s *Usecase) GetProduct(ctx context.Context, id int64) (*product.Product, e
 	return p, nil
 }
 
-func (s *Usecase) GetAllProducts(ctx context.Context, page, pageSize int) ([]product.Product, error) {
+func (s *Usecase) GetAllProducts(ctx context.Context, venueID int, page, pageSize int) ([]product.Product, error) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	return s.productRepo.GetAllProducts(ctx, page, pageSize)
+	return s.productRepo.GetAllProducts(ctx, venueID, page, pageSize)
 }
 
-func (s *Usecase) UpdateProduct(ctx context.Context, id int64, p product.Product) (*product.Product, error) {
+func (s *Usecase) UpdateProduct(ctx context.Context, id int64, venueID int, p product.Product) (*product.Product, error) {
 	if id <= 0 {
 		return nil, product.ErrInvalidID
 	}
 
-	current, err := s.GetProduct(ctx, id)
+	current, err := s.GetProduct(ctx, id, venueID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Apply updates (simplified logic here, usually pass DTO or Partial)
 	if p.Name != "" {
 		current.Name = p.Name
 	}
@@ -170,16 +169,16 @@ func (s *Usecase) UpdateProduct(ctx context.Context, id int64, p product.Product
 	return s.productRepo.UpdateProduct(ctx, *current)
 }
 
-func (s *Usecase) DeleteProduct(ctx context.Context, id int64) error {
+func (s *Usecase) DeleteProduct(ctx context.Context, id int64, venueID int) error {
 	if id <= 0 {
 		return product.ErrInvalidID
 	}
-	return s.productRepo.DeleteProduct(ctx, id)
+	return s.productRepo.DeleteProduct(ctx, id, venueID)
 }
 
 // Recipe Methods
 
-func (s *Usecase) AddIngredient(ctx context.Context, productID, ingredientID int64, quantity float64) (*product.RecipeItem, error) {
+func (s *Usecase) AddIngredient(ctx context.Context, venueID int, productID, ingredientID int64, quantity float64) (*product.RecipeItem, error) {
 	if productID <= 0 || ingredientID <= 0 {
 		return nil, product.ErrInvalidID
 	}
@@ -188,7 +187,7 @@ func (s *Usecase) AddIngredient(ctx context.Context, productID, ingredientID int
 	}
 
 	// Verify product exists
-	_, err := s.productRepo.GetByID(ctx, productID)
+	_, err := s.productRepo.GetByID(ctx, productID, venueID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, product.ErrProductNotFound
@@ -214,7 +213,7 @@ func (s *Usecase) GetProductIngredients(ctx context.Context, productID int64) ([
 
 // Menu Methods
 
-func (s *Usecase) CreateMenuItem(ctx context.Context, name string, price float64, ingredients []product.RecipeItem) (*product.Product, error) {
+func (s *Usecase) CreateMenuItem(ctx context.Context, venueID int, name string, price float64, ingredients []product.RecipeItem) (*product.Product, error) {
 	if name == "" {
 		return nil, product.ErrNameEmpty
 	}
@@ -226,6 +225,7 @@ func (s *Usecase) CreateMenuItem(ctx context.Context, name string, price float64
 	}
 
 	prod := product.Product{
+		VenueID:    venueID,
 		Name:       name,
 		SalesPrice: price,
 		IsActive:   true,

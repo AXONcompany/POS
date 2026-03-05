@@ -21,9 +21,9 @@ func NewUserRepository(db *DB) *UserRepository {
 }
 
 func toDomainUser(p sqlc.User) *user.User {
-	return &user.User{
+	u := &user.User{
 		ID:           int(p.ID),
-		RestaurantID: int(p.RestaurantID),
+		VenueID:      int(p.VenueID),
 		RoleID:       int(p.RoleID),
 		Name:         p.Name,
 		Email:        p.Email,
@@ -32,11 +32,19 @@ func toDomainUser(p sqlc.User) *user.User {
 		CreatedAt:    p.CreatedAt.Time,
 		UpdatedAt:    p.UpdatedAt.Time,
 	}
+	if p.Phone.Valid {
+		u.Phone = &p.Phone.String
+	}
+	if p.LastAccess.Valid {
+		t := p.LastAccess.Time
+		u.LastAccess = &t
+	}
+	return u
 }
 
 func (r *UserRepository) Create(ctx context.Context, u *user.User) (*user.User, error) {
 	params := sqlc.CreateUserParams{
-		RestaurantID: int32(u.RestaurantID),
+		VenueID:      int32(u.VenueID),
 		RoleID:       int32(u.RoleID),
 		Name:         u.Name,
 		Email:        u.Email,
@@ -89,8 +97,8 @@ func (r *UserRepository) Update(ctx context.Context, u *user.User) (*user.User, 
 	return toDomainUser(result), nil
 }
 
-func (r *UserRepository) ListByRestaurant(ctx context.Context, restaurantID int) ([]*user.User, error) {
-	results, err := r.q.ListUsersByRestaurant(ctx, int32(restaurantID))
+func (r *UserRepository) ListByVenue(ctx context.Context, venueID int) ([]*user.User, error) {
+	results, err := r.q.ListUsersByVenue(ctx, int32(venueID))
 	if err != nil {
 		return nil, err
 	}
@@ -100,4 +108,8 @@ func (r *UserRepository) ListByRestaurant(ctx context.Context, restaurantID int)
 		users[i] = toDomainUser(result)
 	}
 	return users, nil
+}
+
+func (r *UserRepository) UpdateLastAccess(ctx context.Context, id int) error {
+	return r.q.UpdateUserLastAccess(ctx, int32(id))
 }

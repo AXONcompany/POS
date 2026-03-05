@@ -1,10 +1,11 @@
 package user
 
 import (
-	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/AXONcompany/POS/internal/domain/user"
+	"github.com/AXONcompany/POS/internal/infrastructure/rest/httputil"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/middleware"
 	uc "github.com/AXONcompany/POS/internal/usecase/user"
 	"github.com/gin-gonic/gin"
@@ -18,40 +19,135 @@ func NewHandler(usecase *uc.Usecase) *Handler {
 	return &Handler{uc: usecase}
 }
 
-type CreateUserRequest struct {
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
-	RoleID   int    `json:"role_id" binding:"required"`
+var roleNames = map[int]string{
+	1: "ADMIN",
+	2: "CAJA",
+	3: "MESERO",
 }
 
-func (h *Handler) CreateEmployee(c *gin.Context) {
-	restaurantID, exists := c.Get(middleware.RestaurantIDKey)
+func toUsuarioResponse(u *user.User) gin.H {
+	rol := roleNames[u.RoleID]
+	if rol == "" {
+		rol = "DESCONOCIDO"
+	}
+
+	resp := gin.H{
+		"id":             u.ID,
+		"nombre":         u.Name,
+		"email":          u.Email,
+		"rol":            rol,
+		"activo":         u.IsActive,
+		"fecha_creacion": u.CreatedAt,
+	}
+	if u.Phone != nil {
+		resp["telefono"] = *u.Phone
+	}
+	if u.LastAccess != nil {
+		resp["ultimo_acceso"] = *u.LastAccess
+	}
+	return resp
+}
+
+func (h *Handler) GetAll(c *gin.Context) {
+	venueID, exists := c.Get(middleware.VenueIDKey)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, httputil.ErrorResponse("unauthorized", "UNAUTHORIZED"))
 		return
 	}
 
-	var req CreateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
-		return
-	}
-
-	u := &user.User{
-		RestaurantID: restaurantID.(int),
-		RoleID:       req.RoleID,
-		Name:         req.Name,
-		Email:        req.Email,
-		IsActive:     true,
-	}
-
-	createdUser, err := h.uc.CreateUser(c.Request.Context(), u, req.Password)
+	users, err := h.uc.GetAllUsers(c.Request.Context(), venueID.(int))
 	if err != nil {
-		log.Printf("Error creating user: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
+		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse(err.Error(), "INTERNAL_ERROR"))
 		return
 	}
 
-	c.JSON(http.StatusCreated, createdUser)
+	result := make([]gin.H, len(users))
+	for i, u := range users {
+		result[i] = toUsuarioResponse(u)
+	}
+
+	c.JSON(http.StatusOK, httputil.SuccessResponse(result))
+}
+
+func (h *Handler) GetByID(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("ID invalido", "BAD_REQUEST"))
+		return
+	}
+
+	u, err := h.uc.GetUserByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, httputil.ErrorResponse("Usuario no encontrado", "NOT_FOUND"))
+		return
+	}
+
+	c.JSON(http.StatusOK, httputil.SuccessResponse(toUsuarioResponse(u)))
+}
+
+type UpdateUserRequest struct {
+	Name   *string `json:"nombre"`
+	Email  *string `json:"email"`
+	RoleID *int    `json:"rol_id"`
+	Active *bool   `json:"activo"`
+	Phone  *string `json:"telefono"`
+}
+
+func (h *Handler) Update(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("ID invalido", "BAD_REQUEST"))
+		return
+	}
+
+	var req UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("Datos invalidos", "BAD_REQUEST"))
+		return
+	}
+
+	u, err := h.uc.GetUserByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, httputil.ErrorResponse("Usuario no encontrado", "NOT_FOUND"))
+		return
+	}
+
+	if req.Name != nil {
+		u.Name = *req.Name
+	}
+	if req.Email != nil {
+		u.Email = *req.Email
+	}
+	if req.RoleID != nil {
+		u.RoleID = *req.RoleID
+	}
+	if req.Active != nil {
+		u.IsActive = *req.Active
+	}
+	if req.Phone != nil {
+		u.Phone = req.Phone
+	}
+
+	updated, err := h.uc.UpdateUser(c.Request.Context(), u)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse(err.Error(), "INTERNAL_ERROR"))
+		return
+	}
+
+	c.JSON(http.StatusOK, httputil.SuccessResponse(toUsuarioResponse(updated)))
+}
+
+func (h *Handler) Delete(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("ID invalido", "BAD_REQUEST"))
+		return
+	}
+
+	if err := h.uc.DeleteUser(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse(err.Error(), "INTERNAL_ERROR"))
+		return
+	}
+
+	c.JSON(http.StatusOK, httputil.SuccessMessageResponse("Usuario desactivado exitosamente"))
 }

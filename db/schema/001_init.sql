@@ -1,106 +1,201 @@
--- Schema snapshot
+-- Schema snapshot (post-restructure)
 
-create table if not exists users (
-  id bigserial primary key,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  deleted_at timestamptz null,
-
-  email text not null unique,
-  password text not null
+-- Owners
+CREATE TABLE IF NOT EXISTS owners (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-create table if not exists waitress(
-  id_user bigint primary key,
-  FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE
+-- Venues (replaces restaurants)
+CREATE TABLE IF NOT EXISTS venues (
+    id SERIAL PRIMARY KEY,
+    owner_id INTEGER NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    address TEXT,
+    phone VARCHAR(50),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-create table if not exists tables(
-  id_table bigserial primary key,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  deleted_at timestamptz null,
-
-  table_number integer not null unique,
-  capacity integer not null,
-  status varchar(16) not null,
-  arrival_time timestamptz
+-- POS Terminals
+CREATE TABLE IF NOT EXISTS pos_terminals (
+    id SERIAL PRIMARY KEY,
+    venue_id INTEGER NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+    terminal_name VARCHAR(100) NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-create table if not exists table_waitress (
-    id bigserial primary key,
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now(),
-    deleted_at timestamptz null,
-
-    --FOREIGN KEYS
-    table_id bigint not null,
-    waitress_id bigint not null,
-
-    FOREIGN KEY (table_id) REFERENCES tables(id_table) ON DELETE CASCADE,
-    FOREIGN KEY (waitress_id) REFERENCES waitress(id_user) ON DELETE CASCADE
+-- Roles
+CREATE TABLE IF NOT EXISTS roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT
 );
 
-
-create table if not exists categories (
-  id bigserial primary key,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  deleted_at timestamptz null,
-
-  category_name text not null
+-- Users
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    venue_id INTEGER NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+    role_id INTEGER NOT NULL REFERENCES roles(id),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    phone VARCHAR(50),
+    last_access TIMESTAMPTZ
 );
 
-create table if not exists ingredients (
-  id bigserial primary key,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  deleted_at timestamptz null,
-
-  ingredient_name varchar(124) not null,
-  unit_of_measure varchar(8) not null,
-  ingredient_type varchar(24) not null,
-  stock bigint not null default 0
+-- Sessions
+CREATE TABLE IF NOT EXISTS sessions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    refresh_token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    device_info TEXT,
+    ip_address VARCHAR(45),
+    is_revoked BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-create table if not exists products (
-    id bigserial primary key,
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now(),
-    deleted_at timestamptz null,
-
-    product_name varchar(255) not null,
-    sales_price decimal(10, 2) not null,
-    is_active boolean not null
+-- Tables
+CREATE TABLE IF NOT EXISTS tables (
+    id_table BIGSERIAL PRIMARY KEY,
+    venue_id INTEGER NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ NULL,
+    table_number INTEGER NOT NULL,
+    capacity INTEGER NOT NULL,
+    status VARCHAR(16) NOT NULL,
+    arrival_time TIMESTAMPTZ,
+    CONSTRAINT uq_tables_venue_number UNIQUE (venue_id, table_number)
 );
 
-create table if not exists product_categories (
-
-    id bigserial primary key,
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now(),
-    deleted_at timestamptz null,
-
-    product_id bigserial not null,
-    category_id bigserial not null,
-
-    foreign key (product_id) references products(id) on delete cascade,
-    foreign key (category_id) references categories(id) on delete cascade
-
+-- Categories
+CREATE TABLE IF NOT EXISTS categories (
+    id BIGSERIAL PRIMARY KEY,
+    venue_id INTEGER NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ NULL,
+    category_name TEXT NOT NULL
 );
 
-create table if not exists recipe (
-    id bigserial primary key,
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now(),
-    deleted_at timestamptz null,
-
-    product_id bigint not null,
-    ingredient_id bigint not null,
-
-    quantity_required decimal(10, 4) not null,
-
-    foreign key (product_id) references products(id) on delete cascade,
-    foreign key (ingredient_id) references ingredients(id) on delete cascade
-
+-- Ingredients
+CREATE TABLE IF NOT EXISTS ingredients (
+    id BIGSERIAL PRIMARY KEY,
+    venue_id INTEGER NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ NULL,
+    ingredient_name VARCHAR(124) NOT NULL,
+    unit_of_measure VARCHAR(8) NOT NULL,
+    ingredient_type VARCHAR(24) NOT NULL,
+    stock BIGINT NOT NULL DEFAULT 0
 );
+
+-- Products
+CREATE TABLE IF NOT EXISTS products (
+    id BIGSERIAL PRIMARY KEY,
+    venue_id INTEGER NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ NULL,
+    product_name VARCHAR(255) NOT NULL,
+    sales_price DECIMAL(10, 2) NOT NULL,
+    is_active BOOLEAN NOT NULL
+);
+
+-- Product Categories
+CREATE TABLE IF NOT EXISTS product_categories (
+    id BIGSERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ NULL,
+    product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    category_id BIGINT NOT NULL REFERENCES categories(id) ON DELETE CASCADE
+);
+
+-- Recipe
+CREATE TABLE IF NOT EXISTS recipe (
+    id BIGSERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ NULL,
+    product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    ingredient_id BIGINT NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+    quantity_required DECIMAL(10, 4) NOT NULL
+);
+
+-- Order Statuses
+CREATE TABLE IF NOT EXISTS order_statuses (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT
+);
+
+-- Orders
+CREATE TABLE IF NOT EXISTS orders (
+    id BIGSERIAL PRIMARY KEY,
+    venue_id INTEGER NOT NULL REFERENCES venues(id),
+    table_id BIGINT REFERENCES tables(id_table),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    pos_terminal_id INTEGER REFERENCES pos_terminals(id),
+    status_id INTEGER NOT NULL REFERENCES order_statuses(id),
+    total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ NULL
+);
+
+-- Order Items
+CREATE TABLE IF NOT EXISTS order_items (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id BIGINT NOT NULL REFERENCES products(id),
+    quantity INTEGER NOT NULL DEFAULT 1,
+    unit_price DECIMAL(10, 2) NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Payments
+CREATE TABLE IF NOT EXISTS payments (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL REFERENCES orders(id),
+    division_id VARCHAR(50),
+    payment_method VARCHAR(20) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    tip DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    total DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+    reference VARCHAR(255),
+    venue_id INTEGER NOT NULL REFERENCES venues(id),
+    pos_terminal_id INTEGER REFERENCES pos_terminals(id),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_venues_owner_id ON venues(owner_id);
+CREATE INDEX IF NOT EXISTS idx_pos_terminals_venue_id ON pos_terminals(venue_id);
+CREATE INDEX IF NOT EXISTS idx_users_venue_id ON users(venue_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_refresh_token ON sessions(refresh_token);
+CREATE INDEX IF NOT EXISTS idx_ingredients_venue_id ON ingredients(venue_id);
+CREATE INDEX IF NOT EXISTS idx_products_venue_id ON products(venue_id);
+CREATE INDEX IF NOT EXISTS idx_categories_venue_id ON categories(venue_id);
+CREATE INDEX IF NOT EXISTS idx_tables_venue_id ON tables(venue_id);
+CREATE INDEX IF NOT EXISTS idx_orders_venue_id ON orders(venue_id);
+CREATE INDEX IF NOT EXISTS idx_payments_venue_id ON payments(venue_id);

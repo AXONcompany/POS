@@ -1,22 +1,23 @@
 -- name: CreateTable :one
 INSERT INTO tables (
-  table_number, status, capacity, arrival_time
+  venue_id, table_number, status, capacity, arrival_time
 ) VALUES (
-  $1, $2, $3, $4
+  $1, $2, $3, $4, $5
 ) RETURNING *;
 
 -- name: ListTables :many
 SELECT * FROM tables
+WHERE venue_id = $1
 ORDER BY table_number;
 
 -- name: GetTable :one
 SELECT * FROM tables
-WHERE id_table = $1 LIMIT 1; -- Cambiado: id -> id_table
+WHERE id_table = $1 AND venue_id = $2 LIMIT 1;
 
 -- name: UpdateTableStatus :one
 UPDATE tables
-SET status = $2, arrival_time = $3, updated_at = now()
-WHERE id_table = $1 -- Cambiado: id -> id_table
+SET status = $3, arrival_time = $4, updated_at = now()
+WHERE id_table = $1 AND venue_id = $2
 RETURNING *;
 
 -- name: UpdateTable :exec
@@ -27,25 +28,8 @@ SET
     status       = COALESCE(sqlc.narg('status'), status),
     arrival_time = COALESCE(sqlc.narg('arrival_time'), arrival_time),
     updated_at   = now()
-WHERE id_table = sqlc.arg('id_table'); -- Cambiado: id -> id_table
+WHERE id_table = sqlc.arg('id_table') AND venue_id = sqlc.arg('venue_id');
 
 -- name: DeleteTable :exec
 DELETE FROM tables
-WHERE id_table = $1; -- Cambiado: id -> id_table
-
--- SECCION: Asignación de Mesas (Table Waitress) --
-
--- name: AssignWaitressToTable :one
-INSERT INTO table_waitress (
-  table_id, waitress_id
-) VALUES (
-  $1, $2
-) RETURNING *;
-
--- name: GetWaitressByTable :one
-SELECT * FROM table_waitress
-WHERE table_id = $1 LIMIT 1;
-
--- name: RemoveWaitressFromTable :exec
-DELETE FROM table_waitress
-WHERE table_id = $1;
+WHERE id_table = $1 AND venue_id = $2;

@@ -10,13 +10,10 @@ import (
 
 type TableRepository interface {
 	Create(ctx context.Context, t *table.Table) error
-	FindAll(ctx context.Context) ([]table.Table, error)
-	FindByID(ctx context.Context, id int64) (*table.Table, error)
-	Update(ctx context.Context, id int64, updates *table.TableUpdates) error
-	Delete(ctx context.Context, id int64) error
-	AssignWaitressToTable(ctx context.Context, tableID int64, waitressID int64) error
-	RemoveWaitressFromTable(ctx context.Context, tableID int64, waitressID int64) error
-	FindWaitressesByTableID(ctx context.Context, tableID int64) ([]table.TableWaitress, error)
+	FindAll(ctx context.Context, venueID int) ([]table.Table, error)
+	FindByID(ctx context.Context, id int64, venueID int) (*table.Table, error)
+	Update(ctx context.Context, id int64, venueID int, updates *table.TableUpdates) error
+	Delete(ctx context.Context, id int64, venueID int) error
 }
 
 type Usecase struct {
@@ -36,7 +33,7 @@ func (s *Usecase) Create(c context.Context, t *table.Table) error {
 	defer cancel()
 
 	if t.Number <= 0 {
-		return errors.New("el número de mesa debe ser positivo")
+		return errors.New("el numero de mesa debe ser positivo")
 	}
 	if t.Capacity <= 0 {
 		return errors.New("la capacidad de la mesa debe ser mayor a 0")
@@ -45,19 +42,19 @@ func (s *Usecase) Create(c context.Context, t *table.Table) error {
 	return s.repo.Create(ctx, t)
 }
 
-func (s *Usecase) FindAll(c context.Context) ([]table.Table, error) {
+func (s *Usecase) FindAll(c context.Context, venueID int) ([]table.Table, error) {
 	ctx, cancel := context.WithTimeout(c, s.contextTimeout)
 	defer cancel()
-	return s.repo.FindAll(ctx)
+	return s.repo.FindAll(ctx, venueID)
 }
 
-func (s *Usecase) FindByID(c context.Context, id int64) (*table.Table, error) {
+func (s *Usecase) FindByID(c context.Context, id int64, venueID int) (*table.Table, error) {
 	ctx, cancel := context.WithTimeout(c, s.contextTimeout)
 	defer cancel()
-	return s.repo.FindByID(ctx, id)
+	return s.repo.FindByID(ctx, id, venueID)
 }
 
-func (s *Usecase) Update(c context.Context, id int64, updates *table.TableUpdates) error {
+func (s *Usecase) Update(c context.Context, id int64, venueID int, updates *table.TableUpdates) error {
 	ctx, cancel := context.WithTimeout(c, s.contextTimeout)
 	defer cancel()
 
@@ -65,24 +62,11 @@ func (s *Usecase) Update(c context.Context, id int64, updates *table.TableUpdate
 		return errors.New("la capacidad no puede ser negativa")
 	}
 
-	return s.repo.Update(ctx, id, updates)
+	return s.repo.Update(ctx, id, venueID, updates)
 }
 
-func (s *Usecase) Delete(c context.Context, id int64) error {
+func (s *Usecase) Delete(c context.Context, id int64, venueID int) error {
 	ctx, cancel := context.WithTimeout(c, s.contextTimeout)
 	defer cancel()
-	return s.repo.Delete(ctx, id)
-}
-
-func (s *Usecase) AssignWaitress(c context.Context, tableID int64, waitressID int64) error {
-	ctx, cancel := context.WithTimeout(c, s.contextTimeout)
-	defer cancel()
-
-	return s.repo.AssignWaitressToTable(ctx, tableID, waitressID)
-}
-
-func (s *Usecase) FindWaitressesByTable(c context.Context, tableID int64) ([]table.TableWaitress, error) {
-	ctx, cancel := context.WithTimeout(c, s.contextTimeout)
-	defer cancel()
-	return s.repo.FindWaitressesByTableID(ctx, tableID)
+	return s.repo.Delete(ctx, id, venueID)
 }
