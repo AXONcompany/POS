@@ -23,6 +23,7 @@ func ptrTime(t pgtype.Timestamptz) *time.Time {
 func toDomainIngredient(ing sqlc.Ingredient) ingredient.Ingredient {
 	return ingredient.Ingredient{
 		ID:             ing.ID,
+		VenueID:        int(ing.VenueID),
 		Name:           ing.IngredientName,
 		UnitOfMeasure:  ing.UnitOfMeasure,
 		IngredientType: ing.IngredientType,
@@ -37,20 +38,22 @@ func NewIngredientRepository(db *DB) *IngredientRepository {
 	return &IngredientRepository{q: sqlc.New(db.Pool)}
 }
 
-func (r *IngredientRepository) GetByID(ctx context.Context, id int64) (*ingredient.Ingredient, error) {
-
-	row, err := r.q.GetIngredientByID(ctx, id)
+func (r *IngredientRepository) GetByID(ctx context.Context, id int64, venueID int) (*ingredient.Ingredient, error) {
+	row, err := r.q.GetIngredientByID(ctx, sqlc.GetIngredientByIDParams{
+		ID:      id,
+		VenueID: int32(venueID),
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	ing := toDomainIngredient(row)
 	return &ing, nil
-
 }
 
 func (r *IngredientRepository) NewIngredient(ctx context.Context, ing ingredient.Ingredient) (*ingredient.Ingredient, error) {
 	row, err := r.q.CreateIngredient(ctx, sqlc.CreateIngredientParams{
+		VenueID:        int32(ing.VenueID),
 		IngredientName: ing.Name,
 		UnitOfMeasure:  ing.UnitOfMeasure,
 		IngredientType: ing.IngredientType,
@@ -63,36 +66,38 @@ func (r *IngredientRepository) NewIngredient(ctx context.Context, ing ingredient
 	return &created, nil
 }
 
-func (r *IngredientRepository) DeleteIngredient(ctx context.Context, id int64) error {
-	return r.q.DeleteIngredient(ctx, id)
+func (r *IngredientRepository) DeleteIngredient(ctx context.Context, id int64, venueID int) error {
+	return r.q.DeleteIngredient(ctx, sqlc.DeleteIngredientParams{
+		ID:      id,
+		VenueID: int32(venueID),
+	})
 }
 
-func (r *IngredientRepository) GetAllIngredients(ctx context.Context, page, pageSize int) ([]ingredient.Ingredient, error) {
+func (r *IngredientRepository) GetAllIngredients(ctx context.Context, venueID int, page, pageSize int) ([]ingredient.Ingredient, error) {
 	offset := (page - 1) * pageSize
 
 	rows, err := r.q.ListIngredients(ctx, sqlc.ListIngredientsParams{
-		Limit:  int32(pageSize),
-		Offset: int32(offset),
+		VenueID: int32(venueID),
+		Limit:   int32(pageSize),
+		Offset:  int32(offset),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	items := make([]ingredient.Ingredient, len(rows))
-
 	for i := range rows {
 		items[i] = toDomainIngredient(rows[i])
 	}
-
 	return items, nil
 }
 
 func (r *IngredientRepository) UpdateIngredient(ctx context.Context, ing ingredient.Ingredient) (ingredient.Ingredient, error) {
-
 	row, err := r.q.UpdateIngredient(
 		ctx,
 		sqlc.UpdateIngredientParams{
 			ID:             ing.ID,
+			VenueID:        int32(ing.VenueID),
 			IngredientName: ing.Name,
 			UnitOfMeasure:  ing.UnitOfMeasure,
 			IngredientType: ing.IngredientType,
@@ -105,11 +110,10 @@ func (r *IngredientRepository) UpdateIngredient(ctx context.Context, ing ingredi
 	}
 
 	return toDomainIngredient(row), nil
-
 }
 
-func (r *IngredientRepository) GetAllInventory(ctx context.Context) ([]ingredient.Ingredient, error) {
-	rows, err := r.q.ListAllIngredients(ctx)
+func (r *IngredientRepository) GetAllInventory(ctx context.Context, venueID int) ([]ingredient.Ingredient, error) {
+	rows, err := r.q.ListAllIngredients(ctx, int32(venueID))
 	if err != nil {
 		return nil, err
 	}

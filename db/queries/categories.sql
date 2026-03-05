@@ -1,30 +1,30 @@
 -- name: CreateCategory :one
 insert into categories (
-  category_name
-) values ($1)
-returning id, created_at, updated_at, deleted_at, category_name;
+  venue_id, category_name, is_active
+) values ($1, $2, true)
+returning id, venue_id, created_at, updated_at, deleted_at, category_name;
 
 -- name: GetCategory :one
-select id, created_at, updated_at, deleted_at, category_name
+select id, venue_id, created_at, updated_at, deleted_at, category_name
 from categories
-where id = $1 and deleted_at is null;
+where id = $1 and venue_id = $2 and deleted_at is null;
 
 -- name: ListCategories :many
-select id, created_at, updated_at, deleted_at, category_name
+select id, venue_id, created_at, updated_at, deleted_at, category_name
 from categories
-where deleted_at is null
+where venue_id = $1 and deleted_at is null
 order by id
-limit $1 offset $2;
+limit $2 offset $3;
 
 -- name: UpdateCategory :one
 update categories
 set
-  category_name = $2,
+  category_name = $3,
   updated_at = now()
-where id = $1 and deleted_at is null
-returning id, created_at, updated_at, deleted_at, category_name;
+where id = $1 and venue_id = $2 and deleted_at is null
+returning id, venue_id, created_at, updated_at, deleted_at, category_name;
 
 -- name: DeleteCategory :exec
 update categories
 set deleted_at = now()
-where id = $1 and deleted_at is null;
+where id = $1 and venue_id = $2 and deleted_at is null;

@@ -1,29 +1,6 @@
--- name: CreateRestaurant :one
-INSERT INTO restaurants (
-  name, address, phone
-) VALUES (
-  $1, $2, $3
-)
-RETURNING *;
-
--- name: GetRestaurantByID :one
-SELECT * FROM restaurants
-WHERE id = $1 LIMIT 1;
-
--- name: UpdateRestaurant :one
-UPDATE restaurants
-SET name = $2,
-    address = $3,
-    phone = $4,
-    is_active = $5,
-    updated_at = CURRENT_TIMESTAMP
-WHERE id = $1
-RETURNING *;
-
-
 -- name: CreateUser :one
 INSERT INTO users (
-  restaurant_id, role_id, name, email, password_hash
+  venue_id, role_id, name, email, password_hash
 ) VALUES (
   $1, $2, $3, $4, $5
 )
@@ -47,11 +24,15 @@ SET name = $2,
 WHERE id = $1
 RETURNING *;
 
--- name: ListUsersByRestaurant :many
+-- name: ListUsersByVenue :many
 SELECT * FROM users
-WHERE restaurant_id = $1
+WHERE venue_id = $1
 ORDER BY name;
 
+-- name: UpdateUserLastAccess :exec
+UPDATE users
+SET last_access = CURRENT_TIMESTAMP
+WHERE id = $1;
 
 -- name: GetRoleByName :one
 SELECT * FROM roles
@@ -60,7 +41,6 @@ WHERE name = $1 LIMIT 1;
 -- name: GetRoleByID :one
 SELECT * FROM roles
 WHERE id = $1 LIMIT 1;
-
 
 -- name: CreateSession :one
 INSERT INTO sessions (

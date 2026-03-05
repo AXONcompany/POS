@@ -40,9 +40,14 @@ func (m *MockUserRepository) Update(ctx context.Context, u *domainUser.User) (*d
 	return args.Get(0).(*domainUser.User), args.Error(1)
 }
 
-func (m *MockUserRepository) ListByRestaurant(ctx context.Context, restaurantID int) ([]*domainUser.User, error) {
-	args := m.Called(ctx, restaurantID)
+func (m *MockUserRepository) ListByVenue(ctx context.Context, venueID int) ([]*domainUser.User, error) {
+	args := m.Called(ctx, venueID)
 	return args.Get(0).([]*domainUser.User), args.Error(1)
+}
+
+func (m *MockUserRepository) UpdateLastAccess(ctx context.Context, id int) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
 }
 
 func TestCreateUser_PasswordHashing(t *testing.T) {
@@ -52,10 +57,10 @@ func TestCreateUser_PasswordHashing(t *testing.T) {
 	ctx := context.Background()
 	rawPassword := "SecurePass123"
 	u := &domainUser.User{
-		Name:         "John Doe",
-		Email:        "john@test.com",
-		RoleID:       2,
-		RestaurantID: 1,
+		Name:    "John Doe",
+		Email:   "john@test.com",
+		RoleID:  2,
+		VenueID: 1,
 	}
 
 	mockRepo.On("Create", ctx, mock.AnythingOfType("*user.User")).Run(func(args mock.Arguments) {

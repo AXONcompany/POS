@@ -16,8 +16,10 @@ import (
 // --- MOCKS ---
 
 type mockUserRepository struct {
-	getByEmailFunc func(ctx context.Context, email string) (*domainUser.User, error)
-	getByIDFunc    func(ctx context.Context, id int) (*domainUser.User, error)
+	getByEmailFunc     func(ctx context.Context, email string) (*domainUser.User, error)
+	getByIDFunc        func(ctx context.Context, id int) (*domainUser.User, error)
+	createFunc         func(ctx context.Context, u *domainUser.User) (*domainUser.User, error)
+	updateLastAccessFn func(ctx context.Context, id int) error
 }
 
 func (m *mockUserRepository) GetByEmail(ctx context.Context, email string) (*domainUser.User, error) {
@@ -32,6 +34,21 @@ func (m *mockUserRepository) GetByID(ctx context.Context, id int) (*domainUser.U
 		return m.getByIDFunc(ctx, id)
 	}
 	return nil, errors.New("not implemented")
+}
+
+func (m *mockUserRepository) Create(ctx context.Context, u *domainUser.User) (*domainUser.User, error) {
+	if m.createFunc != nil {
+		return m.createFunc(ctx, u)
+	}
+	u.ID = 1
+	return u, nil
+}
+
+func (m *mockUserRepository) UpdateLastAccess(ctx context.Context, id int) error {
+	if m.updateLastAccessFn != nil {
+		return m.updateLastAccessFn(ctx, id)
+	}
+	return nil
 }
 
 type mockSessionRepository struct {
@@ -93,7 +110,7 @@ func TestUsecase_Login_Basic_Success(t *testing.T) {
 	sessionRepo := &mockSessionRepository{} // defaults are fine for success
 
 	secret := "supersecret"
-	usecase := uc.NewUsecase(userRepo, sessionRepo, secret)
+	usecase := uc.NewUsecase(userRepo, sessionRepo, secret, nil, nil)
 
 	response, err := usecase.Login(context.Background(), "test@axon.com", expectedPass, "device", "127.0.0.1")
 
@@ -135,7 +152,7 @@ func TestUsecase_Login_Edge_Table(t *testing.T) {
 	}
 	sessionRepo := &mockSessionRepository{}
 	secret := "supersecret"
-	usecase := uc.NewUsecase(userRepo, sessionRepo, secret)
+	usecase := uc.NewUsecase(userRepo, sessionRepo, secret, nil, nil)
 
 	// Crear string masivo de 72+ bytes (Límite BCrypt es 72 por diseño, el resto es truncado o devuleve error en versiones seguras)
 	massivePayload := ""
@@ -191,7 +208,7 @@ func TestUsecase_RefreshToken_Edge_BorderlineExp(t *testing.T) {
 		},
 	}
 	userRepo := &mockUserRepository{}
-	usecase := uc.NewUsecase(userRepo, sessionRepo, "secret")
+	usecase := uc.NewUsecase(userRepo, sessionRepo, "secret", nil, nil)
 
 	_, err := usecase.RefreshToken(context.Background(), "some-token")
 	if err == nil {

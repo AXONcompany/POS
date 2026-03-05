@@ -4,11 +4,11 @@ import (
 	"time"
 )
 
-// Request para crear
+// Request para crear (swagger: numero y capacidad)
 type CreateRequest struct {
-	Number   int    `json:"table_number" binding:"required,gt=0"`
-	Capacity int    `json:"capacity" binding:"required,gt=0"`
-	Status   string `json:"status" binding:"required"`
+	Number   int    `json:"numero" binding:"required,gt=0"`
+	Capacity int    `json:"capacidad" binding:"required,gt=0"`
+	Status   string `json:"status"`
 }
 
 // Request para actualizar
@@ -19,6 +19,11 @@ type UpdateRequest struct {
 	ArrivalTime *time.Time `json:"arrival_time"`
 }
 
+// Request para actualizar solo el estado (swagger: PATCH /mesas/:id/estado)
+type UpdateEstadoRequest struct {
+	Estado string `json:"estado" binding:"required"`
+}
+
 // Request para asignar mesero
 type AssignWaitressRequest struct {
 	WaitressID int64 `json:"waitress_id" binding:"required"`
@@ -27,9 +32,9 @@ type AssignWaitressRequest struct {
 // Response
 type Response struct {
 	ID          int64      `json:"id"`
-	Number      int        `json:"table_number"`
+	Number      int        `json:"number"`
 	Capacity    int        `json:"capacity"`
-	Status      string     `json:"status"`
-	ArrivalTime *time.Time `json:"arrival_time"`
+	Status      string     `json:"state"`
+	ArrivalTime *time.Time `json:"arrival_time,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 }

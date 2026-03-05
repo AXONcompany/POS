@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	UserIDKey       = "user_id"
-	RoleIDKey       = "role_id"
-	RestaurantIDKey = "restaurant_id"
-	EmailKey        = "email"
+	UserIDKey  = "user_id"
+	RoleIDKey  = "role_id"
+	VenueIDKey = "venue_id"
+	EmailKey   = "email"
 )
 
 func AuthMiddleware(jwtSecret []byte) gin.HandlerFunc {
@@ -55,8 +55,8 @@ func AuthMiddleware(jwtSecret []byte) gin.HandlerFunc {
 		if roleID, ok := claims["role_id"].(float64); ok {
 			c.Set(RoleIDKey, int(roleID))
 		}
-		if restID, ok := claims["restaurant_id"].(float64); ok {
-			c.Set(RestaurantIDKey, int(restID))
+		if venueID, ok := claims["venue_id"].(float64); ok {
+			c.Set(VenueIDKey, int(venueID))
 		}
 		if email, ok := claims["email"].(string); ok {
 			c.Set(EmailKey, email)

@@ -10,6 +10,7 @@ import (
 
 type Category struct {
 	ID           int64              `json:"id"`
+	VenueID      int32              `json:"venue_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
@@ -18,6 +19,7 @@ type Category struct {
 
 type Ingredient struct {
 	ID             int64              `json:"id"`
+	VenueID        int32              `json:"venue_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
@@ -27,8 +29,73 @@ type Ingredient struct {
 	Stock          int64              `json:"stock"`
 }
 
+type Order struct {
+	ID            int64              `json:"id"`
+	VenueID       int32              `json:"venue_id"`
+	TableID       pgtype.Int8        `json:"table_id"`
+	UserID        int32              `json:"user_id"`
+	PosTerminalID pgtype.Int4        `json:"pos_terminal_id"`
+	StatusID      int32              `json:"status_id"`
+	TotalAmount   pgtype.Numeric     `json:"total_amount"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type OrderItem struct {
+	ID        int64              `json:"id"`
+	OrderID   int64              `json:"order_id"`
+	ProductID int64              `json:"product_id"`
+	Quantity  int32              `json:"quantity"`
+	UnitPrice pgtype.Numeric     `json:"unit_price"`
+	Notes     pgtype.Text        `json:"notes"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type OrderStatus struct {
+	ID          int32       `json:"id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+}
+
+type Owner struct {
+	ID           int32              `json:"id"`
+	Name         string             `json:"name"`
+	Email        string             `json:"email"`
+	PasswordHash string             `json:"password_hash"`
+	IsActive     pgtype.Bool        `json:"is_active"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Payment struct {
+	ID            int64              `json:"id"`
+	OrderID       int64              `json:"order_id"`
+	DivisionID    pgtype.Text        `json:"division_id"`
+	PaymentMethod string             `json:"payment_method"`
+	Amount        pgtype.Numeric     `json:"amount"`
+	Tip           pgtype.Numeric     `json:"tip"`
+	Total         pgtype.Numeric     `json:"total"`
+	Status        string             `json:"status"`
+	Reference     pgtype.Text        `json:"reference"`
+	VenueID       int32              `json:"venue_id"`
+	PosTerminalID pgtype.Int4        `json:"pos_terminal_id"`
+	UserID        int32              `json:"user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type PosTerminal struct {
+	ID           int32              `json:"id"`
+	VenueID      int32              `json:"venue_id"`
+	TerminalName string             `json:"terminal_name"`
+	IsActive     pgtype.Bool        `json:"is_active"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Product struct {
 	ID          int64              `json:"id"`
+	VenueID     int32              `json:"venue_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
@@ -56,16 +123,6 @@ type Recipe struct {
 	QuantityRequired pgtype.Numeric     `json:"quantity_required"`
 }
 
-type Restaurant struct {
-	ID        int32              `json:"id"`
-	Name      string             `json:"name"`
-	Address   pgtype.Text        `json:"address"`
-	Phone     pgtype.Text        `json:"phone"`
-	IsActive  pgtype.Bool        `json:"is_active"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
 type Role struct {
 	ID          int32       `json:"id"`
 	Name        string      `json:"name"`
@@ -85,6 +142,7 @@ type Session struct {
 
 type Table struct {
 	IDTable     int64              `json:"id_table"`
+	VenueID     int32              `json:"venue_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
@@ -94,18 +152,9 @@ type Table struct {
 	ArrivalTime pgtype.Timestamptz `json:"arrival_time"`
 }
 
-type TableWaitress struct {
-	ID         int64              `json:"id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
-	TableID    int64              `json:"table_id"`
-	WaitressID int64              `json:"waitress_id"`
-}
-
 type User struct {
 	ID           int32              `json:"id"`
-	RestaurantID int32              `json:"restaurant_id"`
+	VenueID      int32              `json:"venue_id"`
 	RoleID       int32              `json:"role_id"`
 	Name         string             `json:"name"`
 	Email        string             `json:"email"`
@@ -113,8 +162,17 @@ type User struct {
 	IsActive     pgtype.Bool        `json:"is_active"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Phone        pgtype.Text        `json:"phone"`
+	LastAccess   pgtype.Timestamptz `json:"last_access"`
 }
 
-type Waitress struct {
-	IDUser int64 `json:"id_user"`
+type Venue struct {
+	ID        int32              `json:"id"`
+	OwnerID   int32              `json:"owner_id"`
+	Name      string             `json:"name"`
+	Address   pgtype.Text        `json:"address"`
+	Phone     pgtype.Text        `json:"phone"`
+	IsActive  pgtype.Bool        `json:"is_active"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }

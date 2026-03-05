@@ -11,25 +11,33 @@ import (
 
 const createIngredient = `-- name: CreateIngredient :one
 insert into ingredients (
+  venue_id,
   ingredient_name,
   unit_of_measure,
   ingredient_type
 )
-values ($1, $2, $3)
-returning id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
+values ($1, $2, $3, $4)
+returning id, venue_id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
 `
 
 type CreateIngredientParams struct {
+	VenueID        int32  `json:"venue_id"`
 	IngredientName string `json:"ingredient_name"`
 	UnitOfMeasure  string `json:"unit_of_measure"`
 	IngredientType string `json:"ingredient_type"`
 }
 
 func (q *Queries) CreateIngredient(ctx context.Context, arg CreateIngredientParams) (Ingredient, error) {
-	row := q.db.QueryRow(ctx, createIngredient, arg.IngredientName, arg.UnitOfMeasure, arg.IngredientType)
+	row := q.db.QueryRow(ctx, createIngredient,
+		arg.VenueID,
+		arg.IngredientName,
+		arg.UnitOfMeasure,
+		arg.IngredientType,
+	)
 	var i Ingredient
 	err := row.Scan(
 		&i.ID,
+		&i.VenueID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -44,25 +52,36 @@ func (q *Queries) CreateIngredient(ctx context.Context, arg CreateIngredientPara
 const deleteIngredient = `-- name: DeleteIngredient :exec
 update ingredients
 set deleted_at = now()
-where id = $1 and deleted_at is null
+where id = $1 and venue_id = $2 and deleted_at is null
 `
 
-func (q *Queries) DeleteIngredient(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, deleteIngredient, id)
+type DeleteIngredientParams struct {
+	ID      int64 `json:"id"`
+	VenueID int32 `json:"venue_id"`
+}
+
+func (q *Queries) DeleteIngredient(ctx context.Context, arg DeleteIngredientParams) error {
+	_, err := q.db.Exec(ctx, deleteIngredient, arg.ID, arg.VenueID)
 	return err
 }
 
 const getIngredientByID = `-- name: GetIngredientByID :one
-select id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
+select id, venue_id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
 from ingredients
-where id = $1 and deleted_at is null
+where id = $1 and venue_id = $2 and deleted_at is null
 `
 
-func (q *Queries) GetIngredientByID(ctx context.Context, id int64) (Ingredient, error) {
-	row := q.db.QueryRow(ctx, getIngredientByID, id)
+type GetIngredientByIDParams struct {
+	ID      int64 `json:"id"`
+	VenueID int32 `json:"venue_id"`
+}
+
+func (q *Queries) GetIngredientByID(ctx context.Context, arg GetIngredientByIDParams) (Ingredient, error) {
+	row := q.db.QueryRow(ctx, getIngredientByID, arg.ID, arg.VenueID)
 	var i Ingredient
 	err := row.Scan(
 		&i.ID,
+		&i.VenueID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -75,14 +94,14 @@ func (q *Queries) GetIngredientByID(ctx context.Context, id int64) (Ingredient, 
 }
 
 const listAllIngredients = `-- name: ListAllIngredients :many
-select id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
+select id, venue_id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
 from ingredients
-where deleted_at is null
+where venue_id = $1 and deleted_at is null
 order by ingredient_name
 `
 
-func (q *Queries) ListAllIngredients(ctx context.Context) ([]Ingredient, error) {
-	rows, err := q.db.Query(ctx, listAllIngredients)
+func (q *Queries) ListAllIngredients(ctx context.Context, venueID int32) ([]Ingredient, error) {
+	rows, err := q.db.Query(ctx, listAllIngredients, venueID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +111,7 @@ func (q *Queries) ListAllIngredients(ctx context.Context) ([]Ingredient, error) 
 		var i Ingredient
 		if err := rows.Scan(
 			&i.ID,
+			&i.VenueID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -111,20 +131,21 @@ func (q *Queries) ListAllIngredients(ctx context.Context) ([]Ingredient, error) 
 }
 
 const listIngredients = `-- name: ListIngredients :many
-select id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
+select id, venue_id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
 from ingredients
-where deleted_at is null
+where venue_id = $1 and deleted_at is null
 order by id
-limit $1 offset $2
+limit $2 offset $3
 `
 
 type ListIngredientsParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	VenueID int32 `json:"venue_id"`
+	Limit   int32 `json:"limit"`
+	Offset  int32 `json:"offset"`
 }
 
 func (q *Queries) ListIngredients(ctx context.Context, arg ListIngredientsParams) ([]Ingredient, error) {
-	rows, err := q.db.Query(ctx, listIngredients, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listIngredients, arg.VenueID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +155,7 @@ func (q *Queries) ListIngredients(ctx context.Context, arg ListIngredientsParams
 		var i Ingredient
 		if err := rows.Scan(
 			&i.ID,
+			&i.VenueID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -155,17 +177,18 @@ func (q *Queries) ListIngredients(ctx context.Context, arg ListIngredientsParams
 const updateIngredient = `-- name: UpdateIngredient :one
 update ingredients
 set
-  ingredient_name = $2,
-  unit_of_measure = $3,
-  ingredient_type = $4,
-  stock = $5,
+  ingredient_name = $3,
+  unit_of_measure = $4,
+  ingredient_type = $5,
+  stock = $6,
   updated_at = now()
-where id = $1 and deleted_at is null
-returning id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
+where id = $1 and venue_id = $2 and deleted_at is null
+returning id, venue_id, created_at, updated_at, deleted_at, ingredient_name, unit_of_measure, ingredient_type, stock
 `
 
 type UpdateIngredientParams struct {
 	ID             int64  `json:"id"`
+	VenueID        int32  `json:"venue_id"`
 	IngredientName string `json:"ingredient_name"`
 	UnitOfMeasure  string `json:"unit_of_measure"`
 	IngredientType string `json:"ingredient_type"`
@@ -175,6 +198,7 @@ type UpdateIngredientParams struct {
 func (q *Queries) UpdateIngredient(ctx context.Context, arg UpdateIngredientParams) (Ingredient, error) {
 	row := q.db.QueryRow(ctx, updateIngredient,
 		arg.ID,
+		arg.VenueID,
 		arg.IngredientName,
 		arg.UnitOfMeasure,
 		arg.IngredientType,
@@ -183,6 +207,7 @@ func (q *Queries) UpdateIngredient(ctx context.Context, arg UpdateIngredientPara
 	var i Ingredient
 	err := row.Scan(
 		&i.ID,
+		&i.VenueID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,

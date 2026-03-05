@@ -1,212 +1,165 @@
 # POS API Documentation
 
 ## Base URL
-The API is currently hosted at `http://localhost:8080`.
+`http://localhost:8080`
 
-## Endpoints
+## Response Format
+All responses follow: `{ "success": true/false, "data": {...} }`
+
+## Authentication
+All endpoints (except `/health`, `/ping`, `/auth/login`) require `Authorization: Bearer <token>`.
+
+---
 
 ### Health & Monitoring
 
-#### `GET /health`
-Returns the health status of the service.
-- **Response**: `200 OK`
-  ```json
-  {
-    "status": "ok"
-  }
-  ```
-
-#### `GET /ping`
-Simple connectivity test.
-- **Response**: `200 OK`
-  ```text
-  server say: pong
-  ```
+| Method | Route | Description |
+|---|---|---|
+| GET | `/health` | Returns `{"status": "ok"}` |
+| GET | `/ping` | Returns `"server say: pong"` |
 
 ---
 
-### Ingredients
-Resource for managing baking ingredients.
+### Auth
 
-#### `GET /ingredients`
-Retrieve a paginated list of ingredients.
-- **Query Parameters**:
-  - `page` (int, default: 1): Page number.
-  - `page_size` (int, default: 20): Number of items per page.
-- **Response**: `200 OK`
-  ```json
-  {
-    "data": [
-      {
-        "id": 1,
-        "name": "Flour",
-        "unit_of_measure": "kg",
-        "type": "dry",
-        "stock": 100,
-        "created_at": "2024-01-01T00:00:00Z"
-      }
-    ],
-    "page": 1,
-    "page_size": 20
-  }
-  ```
+| Method | Route | Auth | Description |
+|---|---|---|---|
+| POST | `/auth/login` | Public | Login, returns JWT |
+| POST | `/auth/register` | Propietario | Register new user |
+| GET | `/auth/me` | Any | Current user info |
+| POST | `/auth/logout` | Any | Revoke refresh token |
 
-#### `POST /ingredients`
-Create a new ingredient.
-- **Request Body**:
-  ```json
-  {
-    "name": "Sugar",           // required
-    "unit_of_measure": "kg",   // required
-    "type": "dry",             // required
-    "stock": 50                // optional, default 0
-  }
-  ```
-- **Response**: `201 Created`
-  ```json
-  {
-    "id": 2,
-    "name": "Sugar",
-    "unit_of_measure": "kg",
-    "type": "dry",
-    "stock": 50,
-    "created_at": "2024-01-27T12:00:00Z"
-  }
-  ```
-
-#### `GET /ingredients/:id`
-Get a specific ingredient by ID.
-- **Parameters**: `id` (int)
-- **Response**: `200 OK`
-  ```json
-  {
-    "id": 1,
-    ...
-  }
-  ```
-- **Error**: `404 Not Found`
-
-#### `PUT /ingredients/:id`
-Update an existing ingredient. Fields are optional; only provided fields are updated.
-- **Parameters**: `id` (int)
-- **Request Body**:
-  ```json
-  {
-    "name": "White Sugar",
-    "stock": 60
-  }
-  ```
-- **Response**: `200 OK` (Returns the updated object)
-
-#### `DELETE /ingredients/:id`
-Delete an ingredient.
-- **Parameters**: `id` (int)
-- **Response**: `204 No Content`
+#### POST `/auth/login`
+```json
+// Request
+{ "email": "admin@test.com", "password": "admin" }
+// Response
+{ "success": true, "data": { "token": "...", "usuario": {...}, "expires_in": 900 } }
+```
 
 ---
 
-### Categories
-Manage product categories.
+### Mesas (Tables)
 
-#### `POST /categories`
-Create a new category.
-- **Request Body**:
-  ```json
-  { "name": "Bebidas" }
-  ```
-- **Response**: `201 Created`
+| Method | Route | Roles | Description |
+|---|---|---|---|
+| GET | `/mesas` | All | List tables |
+| GET | `/mesas/:id` | All | Get table |
+| POST | `/mesas` | Cajero, Propietario | Create table |
+| PATCH | `/mesas/:id/estado` | Cajero, Propietario | Update status |
+| DELETE | `/mesas/:id` | Cajero, Propietario | Delete table |
+| POST | `/mesas/:id/assign` | Cajero, Propietario | Assign waiter |
 
-#### `GET /categories`
-Retrieve a paginated list of categories.
-- **Query Parameters**:
-  - `page` (int, default: 1)
-  - `page_size` (int, default: 20)
-- **Response**: `200 OK`
-
----
-
-### Products
-Manage individual products.
-
-#### `POST /products`
-Create a new product.
-- **Request Body**:
-  ```json
-  {
-    "name": "Coca Cola",
-    "sales_price": 2.50,
-    "is_active": true
-  }
-  ```
-- **Response**: `201 Created`
-
-#### `GET /products`
-Retrieve a paginated list of products.
-- **Query Parameters**:
-  - `page` (int, default: 1)
-  - `page_size` (int, default: 20)
-- **Response**: `200 OK`
-
-#### `POST /products/:id/ingredients`
-Link an ingredient to a product (Recipe).
-- **Parameters**: `id` (int) - Product ID
-- **Request Body**:
-  ```json
-  { "ingredient_id": 10, "quantity": 0.5 }
-  ```
-- **Response**: `201 Created`
-
-#### `GET /products/:id/ingredients`
-Get all ingredients for a specific product.
-- **Parameters**: `id` (int) - Product ID
-- **Response**: `200 OK`
+```json
+// POST /mesas
+{ "numero": 5, "capacidad": 4 }
+// PATCH /mesas/:id/estado
+{ "estado": "occupied" }
+```
 
 ---
 
-### Inventory Reporting
+### Usuarios (Users)
 
-#### `GET /ingredients/report`
-Retrieve the full inventory status.
-- **Response**: `200 OK`
-  ```json
-  {
-    "data": [...],
-    "count": 50
-  }
-  ```
+| Method | Route | Roles | Description |
+|---|---|---|---|
+| GET | `/usuarios` | Propietario | List users |
+| GET | `/usuarios/:id` | Propietario | Get user |
+| PATCH | `/usuarios/:id` | Propietario | Update user |
+| DELETE | `/usuarios/:id` | Propietario | Deactivate user |
+
+---
+
+### Ingredientes (Ingredients)
+
+| Method | Route | Roles | Description |
+|---|---|---|---|
+| GET | `/ingredientes` | Propietario | List ingredients |
+| POST | `/ingredientes` | Propietario | Create ingredient |
+| GET | `/ingredientes/:id` | Propietario | Get ingredient |
+| PUT | `/ingredientes/:id` | Propietario | Update ingredient |
+| PATCH | `/ingredientes/:id/stock` | Propietario | Stock movement |
+| DELETE | `/ingredientes/:id` | Propietario | Delete ingredient |
+| GET | `/ingredientes/report` | Propietario | Inventory report |
+
+```json
+// POST /ingredientes
+{ "name": "Sugar", "unit_of_measure": "kg", "type": "dry", "stock": 50 }
+// PATCH /ingredientes/:id/stock
+{ "cantidad": 50, "tipo_movimiento": "entrada", "motivo": "Weekly purchase" }
+```
+
+---
+
+### Categorias (Categories)
+
+| Method | Route | Roles | Description |
+|---|---|---|---|
+| POST | `/categorias` | Propietario | Create category |
+| GET | `/categorias` | Propietario | List categories |
 
 ---
 
 ### Menu
-Composite operations for managing the menu system.
 
-#### `GET /menu`
-Retrieve the list of available menu items (Products).
-- **Response**: `200 OK`
+| Method | Route | Roles | Description |
+|---|---|---|---|
+| GET | `/menu` | All | List menu items |
+| POST | `/menu` | Propietario | Create menu item |
+| PATCH | `/menu/:id` | Propietario | Update menu item |
 
-#### `POST /menu`
-Atomically create a menu item (Product + Ingredients).
-- **Request Body**:
-  ```json
-  {
-    "name": "Hamburguesa Completa",
-    "sales_price": 12.00,
-    "ingredients": [
-      { "ingredient_id": 1, "quantity": 0.2 },
-      { "ingredient_id": 5, "quantity": 1.0 }
-    ]
-  }
-  ```
-- **Response**: `201 Created`
+```json
+// POST /menu
+{ "name": "Hamburguesa", "sales_price": 12.00, "ingredients": [{ "ingredient_id": 1, "quantity": 0.2 }] }
+```
 
-#### `PATCH /menu/:id`
-Update a menu item's details.
-- **Parameters**: `id` (int)
-- **Request Body**:
-  ```json
-  {
-    "name": "Hamburguesa Super",
-    "sales_price": 15.00
-  }
-  ```
-- **Response**: `200 OK`
+---
+
+### Ordenes (Orders)
+
+| Method | Route | Roles | Description |
+|---|---|---|---|
+| POST | `/ordenes` | All | Create order |
+| GET | `/ordenes?table_id=1` | All | List by table |
+| GET | `/ordenes/:id` | All | Get order |
+| POST | `/ordenes/:id/items` | All | Add items |
+| DELETE | `/ordenes/:id/items/:item_id` | All | Cancel item |
+| POST | `/ordenes/:id/enviar-cocina` | All | Send to kitchen |
+| PATCH | `/ordenes/:id/status` | All | Update status |
+| POST | `/ordenes/:id/dividir` | Cajero, Propietario | Split bill |
+| POST | `/ordenes/:id/checkout` | Cajero, Propietario | Checkout |
+
+```json
+// POST /ordenes
+{ "mesa_id": "1", "mesero_id": "3" }
+// POST /ordenes/:id/items
+{ "items": [{ "menu_item_id": "1", "cantidad": 2, "notas": "Sin cebolla" }] }
+// POST /ordenes/:id/dividir
+{ "tipo_division": "partes_iguales", "numero_partes": 3 }
+```
+
+---
+
+### Pagos (Payments)
+
+| Method | Route | Roles | Description |
+|---|---|---|---|
+| POST | `/pagos` | Cajero, Propietario | Process payment |
+| GET | `/pagos/:id/factura` | Cajero, Propietario | Generate invoice |
+
+```json
+// POST /pagos
+{ "orden_id": "1", "metodo_pago": "tarjeta", "monto": 41650, "propina": 4165 }
+```
+
+---
+
+### Reportes (Reports)
+
+| Method | Route | Roles | Description |
+|---|---|---|---|
+| GET | `/reportes/ventas` | Propietario | Sales report |
+| GET | `/reportes/inventario` | Propietario | Inventory report |
+| GET | `/reportes/propinas` | Propietario | Tips report |
+
+**Query params:** `fecha_inicio` (date), `fecha_fin` (date), `tipo` (por_dia/por_item/por_hora)

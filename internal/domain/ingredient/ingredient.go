@@ -6,6 +6,7 @@ import (
 
 type Ingredient struct {
 	ID             int64
+	VenueID        int
 	Name           string
 	UnitOfMeasure  string
 	IngredientType string

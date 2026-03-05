@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_URL="http://localhost:8080"
+BASE_URL="http://72.61.73.95:8080"
 
 echo -e "\n=== 1. Login ==="
 LOGIN_RESP=$(curl -s -X POST $BASE_URL/auth/login \
