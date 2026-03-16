@@ -38,6 +38,7 @@ type OwnerRepository interface {
 
 type VenueRepository interface {
 	Create(ctx context.Context, v *venue.Venue) (*venue.Venue, error)
+	GetByID(ctx context.Context, id int) (*venue.Venue, error)
 }
 
 type Usecase struct {
@@ -78,19 +79,19 @@ func (uc *Usecase) Login(ctx context.Context, email, password, deviceInfo, ipAdd
 		return nil, errors.New("invalid credentials")
 	}
 
-	// Generate Access Token (15m)
-	accessToken, err := uc.generateToken(u, 15*time.Minute)
+	// Generate Access Token (24h)
+	accessToken, err := uc.generateToken(u, 24*time.Hour)
 	if err != nil {
 		return nil, err
 	}
 
-	// Generate Refresh Token (7d)
-	refreshToken, err := uc.generateToken(u, 7*24*time.Hour)
+	// Generate Refresh Token (24h)
+	refreshToken, err := uc.generateToken(u, 24*time.Hour)
 	if err != nil {
 		return nil, err
 	}
 
-	expiresAt := time.Now().Add(7 * 24 * time.Hour)
+	expiresAt := time.Now().Add(24 * time.Hour)
 
 	// Save session
 	s := &session.Session{
@@ -134,47 +135,105 @@ func (uc *Usecase) generateToken(u *domainUser.User, duration time.Duration) (st
 func (uc *Usecase) RefreshToken(ctx context.Context, refreshToken string) (*TokenResponse, error) {
 	s, err := uc.sessionRepo.GetByToken(ctx, refreshToken)
 	if err != nil {
-		return nil, errors.New("invalid refresh token")
+		return nil, fmt.Errorf("invalid session: %w", err)
 	}
 
-	if s.IsRevoked || s.ExpiresAt.Before(time.Now()) {
-		return nil, errors.New("expired or revoked token")
+	if s.ExpiresAt.Before(time.Now()) {
+		return nil, errors.New("refresh token expired")
 	}
-
-	// Revoke old session
-	_ = uc.sessionRepo.Revoke(ctx, refreshToken)
 
 	u, err := uc.userRepo.GetByID(ctx, s.UserID)
-	if err != nil {
-		return nil, err
+	if err != nil || !u.IsActive {
+		return nil, errors.New("user not found or inactive")
 	}
 
-	// Generate new tokens directly without re-validating password
-	accessToken, err := uc.generateToken(u, 15*time.Minute)
+	newAccessToken, err := uc.generateToken(u, 24*time.Hour)
 	if err != nil {
 		return nil, fmt.Errorf("generating access token: %w", err)
 	}
 
-	newRefresh, err := uc.generateToken(u, 7*24*time.Hour)
+	newRefreshToken, err := uc.generateToken(u, 24*time.Hour)
 	if err != nil {
 		return nil, fmt.Errorf("generating refresh token: %w", err)
 	}
 
-	// Create new session
 	newSession := &session.Session{
 		UserID:       u.ID,
-		RefreshToken: newRefresh,
+		RefreshToken: newRefreshToken,
 		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
 		DeviceInfo:   s.DeviceInfo,
 		IPAddress:    s.IPAddress,
 	}
-	if _, err = uc.sessionRepo.Create(ctx, newSession); err != nil {
+	_, err = uc.sessionRepo.Create(ctx, newSession)
+	if err != nil {
+		return nil, fmt.Errorf("creating new session: %w", err)
+	}
+
+	_ = uc.sessionRepo.Revoke(ctx, refreshToken)
+
+	return &TokenResponse{
+		AccessToken:  newAccessToken,
+		RefreshToken: newRefreshToken,
+		User:         u,
+	}, nil
+}
+
+// SwitchSede permite al propietario cambiar de sede (venue) sin reenviar credenciales.
+func (uc *Usecase) SwitchSede(ctx context.Context, userID, newVenueID int, deviceInfo, ipAddress string) (*TokenResponse, error) {
+	u, err := uc.userRepo.GetByID(ctx, userID)
+	if err != nil || !u.IsActive {
+		return nil, errors.New("user not found or inactive")
+	}
+
+	if u.RoleID != 1 {
+		return nil, errors.New("only owners can switch venues")
+	}
+
+	owner, err := uc.ownerRepo.GetByEmail(ctx, u.Email)
+	if err != nil || !owner.IsActive {
+		return nil, errors.New("owner profile not found or inactive")
+	}
+
+	v, err := uc.venueRepo.GetByID(ctx, newVenueID)
+	if err != nil || !v.IsActive {
+		return nil, errors.New("venue not found or inactive")
+	}
+
+	if v.OwnerID != owner.ID {
+		return nil, errors.New("venue does not belong to owner")
+	}
+
+	// Update user's struct in memory to represent the new venue for the token.
+	// No need to update the user in DB, as we are simply generating a token valid for another venue.
+	// But it's better if the user object reflects it:
+	u.VenueID = v.ID
+
+	accessToken, err := uc.generateToken(u, 24*time.Hour)
+	if err != nil {
+		return nil, fmt.Errorf("generating access token: %w", err)
+	}
+
+	refreshToken, err := uc.generateToken(u, 24*time.Hour)
+	if err != nil {
+		return nil, fmt.Errorf("generating refresh token: %w", err)
+	}
+
+	// Creamos nueva sesión
+	s := &session.Session{
+		UserID:       u.ID,
+		RefreshToken: refreshToken,
+		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
+		DeviceInfo:   deviceInfo,
+		IPAddress:    ipAddress,
+	}
+	_, err = uc.sessionRepo.Create(ctx, s)
+	if err != nil {
 		return nil, fmt.Errorf("creating session: %w", err)
 	}
 
 	return &TokenResponse{
 		AccessToken:  accessToken,
-		RefreshToken: newRefresh,
+		RefreshToken: refreshToken,
 		User:         u,
 	}, nil
 }
@@ -266,12 +325,12 @@ func (uc *Usecase) RegisterOwnerWithVenue(ctx context.Context, ownerName, email,
 	}
 
 	// 4. Generar tokens y sesion
-	accessToken, err := uc.generateToken(createdUser, 15*time.Minute)
+	accessToken, err := uc.generateToken(createdUser, 24*time.Hour)
 	if err != nil {
 		return nil, fmt.Errorf("generating access token: %w", err)
 	}
 
-	refreshToken, err := uc.generateToken(createdUser, 7*24*time.Hour)
+	refreshToken, err := uc.generateToken(createdUser, 24*time.Hour)
 	if err != nil {
 		return nil, fmt.Errorf("generating refresh token: %w", err)
 	}

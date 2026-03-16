@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AXONcompany/POS/internal/domain/owner"
 	domainSession "github.com/AXONcompany/POS/internal/domain/session"
 	domainUser "github.com/AXONcompany/POS/internal/domain/user"
+	"github.com/AXONcompany/POS/internal/domain/venue"
 	uc "github.com/AXONcompany/POS/internal/usecase/auth"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -77,6 +79,52 @@ func (m *mockSessionRepository) Revoke(ctx context.Context, refreshToken string)
 		return m.revokeFunc(ctx, refreshToken)
 	}
 	return nil
+}
+
+type mockOwnerRepository struct {
+	createFunc     func(ctx context.Context, o *owner.Owner) (*owner.Owner, error)
+	getByIDFunc    func(ctx context.Context, id int) (*owner.Owner, error)
+	getByEmailFunc func(ctx context.Context, email string) (*owner.Owner, error)
+}
+
+func (r *mockOwnerRepository) Create(ctx context.Context, o *owner.Owner) (*owner.Owner, error) {
+	if r.createFunc != nil {
+		return r.createFunc(ctx, o)
+	}
+	return o, nil
+}
+
+func (r *mockOwnerRepository) GetByID(ctx context.Context, id int) (*owner.Owner, error) {
+	if r.getByIDFunc != nil {
+		return r.getByIDFunc(ctx, id)
+	}
+	return nil, nil
+}
+
+func (r *mockOwnerRepository) GetByEmail(ctx context.Context, email string) (*owner.Owner, error) {
+	if r.getByEmailFunc != nil {
+		return r.getByEmailFunc(ctx, email)
+	}
+	return nil, nil
+}
+
+type mockVenueRepository struct {
+	createFunc  func(ctx context.Context, v *venue.Venue) (*venue.Venue, error)
+	getByIDFunc func(ctx context.Context, id int) (*venue.Venue, error)
+}
+
+func (r *mockVenueRepository) Create(ctx context.Context, v *venue.Venue) (*venue.Venue, error) {
+	if r.createFunc != nil {
+		return r.createFunc(ctx, v)
+	}
+	return v, nil
+}
+
+func (r *mockVenueRepository) GetByID(ctx context.Context, id int) (*venue.Venue, error) {
+	if r.getByIDFunc != nil {
+		return r.getByIDFunc(ctx, id)
+	}
+	return nil, nil
 }
 
 // Helpers
@@ -207,6 +255,7 @@ func TestUsecase_RefreshToken_Edge_BorderlineExp(t *testing.T) {
 			}, nil
 		},
 	}
+
 	userRepo := &mockUserRepository{}
 	usecase := uc.NewUsecase(userRepo, sessionRepo, "secret", nil, nil)
 
@@ -215,7 +264,7 @@ func TestUsecase_RefreshToken_Edge_BorderlineExp(t *testing.T) {
 		t.Fatal("Nivel 2 Fallido: Un token caducado hace 1 milisegundo logró refrescar la sesión")
 	}
 
-	if err.Error() != "expired or revoked token" {
+	if err.Error() != "refresh token expired" {
 		t.Errorf("Nivel 2 Fallido: Error incorrecto generado: %v", err)
 	}
 }
@@ -275,4 +324,83 @@ func TestUsecase_Token_Adversarial_ForgedKey(t *testing.T) {
 	if err == nil {
 		t.Fatal("Nivel 3 Fallido PELIGROSO: Token falsificado con firma inválida pasó la verificación HMAC")
 	}
+}
+
+func TestSwitchSede(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Fail - non-owner", func(t *testing.T) {
+		mockUserRepo := &mockUserRepository{
+			getByIDFunc: func(ctx context.Context, id int) (*domainUser.User, error) {
+				return &domainUser.User{RoleID: 2, IsActive: true}, nil
+			},
+		}
+		usecase := uc.NewUsecase(mockUserRepo, &mockSessionRepository{}, "secret", &mockOwnerRepository{}, &mockVenueRepository{})
+
+		_, err := usecase.SwitchSede(ctx, 1, 2, "device", "127.0.0.1")
+		if err == nil || err.Error() != "only owners can switch venues" {
+			t.Errorf("expected 'only owners can switch venues', got %v", err)
+		}
+	})
+
+	t.Run("Fail - venue does not belong to owner", func(t *testing.T) {
+		mockUserRepo := &mockUserRepository{
+			getByIDFunc: func(ctx context.Context, id int) (*domainUser.User, error) {
+				return &domainUser.User{RoleID: 1, IsActive: true, Email: "owner@test.com"}, nil
+			},
+		}
+		mockOwnerRepo := &mockOwnerRepository{
+			getByEmailFunc: func(ctx context.Context, email string) (*owner.Owner, error) {
+				return &owner.Owner{ID: 1, IsActive: true}, nil
+			},
+		}
+		mockVenueRepo := &mockVenueRepository{
+			getByIDFunc: func(ctx context.Context, id int) (*venue.Venue, error) {
+				return &venue.Venue{OwnerID: 3, IsActive: true}, nil
+			},
+		}
+
+		usecase := uc.NewUsecase(mockUserRepo, &mockSessionRepository{}, "secret", mockOwnerRepo, mockVenueRepo)
+
+		_, err := usecase.SwitchSede(ctx, 1, 2, "device", "127.0.0.1")
+		if err == nil || err.Error() != "venue does not belong to owner" {
+			t.Errorf("expected 'venue does not belong to owner', got %v", err)
+		}
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		mockUserRepo := &mockUserRepository{
+			getByIDFunc: func(ctx context.Context, id int) (*domainUser.User, error) {
+				return &domainUser.User{ID: 1, RoleID: 1, IsActive: true, Email: "owner@test.com", VenueID: 1}, nil
+			},
+		}
+		mockOwnerRepo := &mockOwnerRepository{
+			getByEmailFunc: func(ctx context.Context, email string) (*owner.Owner, error) {
+				return &owner.Owner{ID: 1, IsActive: true}, nil
+			},
+		}
+		mockVenueRepo := &mockVenueRepository{
+			getByIDFunc: func(ctx context.Context, id int) (*venue.Venue, error) {
+				return &venue.Venue{ID: 2, OwnerID: 1, IsActive: true}, nil
+			},
+		}
+		mockSessionRepo := &mockSessionRepository{
+			createFunc: func(ctx context.Context, s *domainSession.Session) (*domainSession.Session, error) {
+				return s, nil
+			},
+		}
+
+		usecase := uc.NewUsecase(mockUserRepo, mockSessionRepo, "secret", mockOwnerRepo, mockVenueRepo)
+
+		resp, err := usecase.SwitchSede(ctx, 1, 2, "device", "127.0.0.1")
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+		if resp == nil || resp.AccessToken == "" || resp.RefreshToken == "" {
+			t.Errorf("expected tokens, got %+v", resp)
+		}
+		if resp.User.VenueID != 2 {
+			t.Errorf("expected updated venue ID 2, got %d", resp.User.VenueID)
+		}
+	})
 }

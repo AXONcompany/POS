@@ -47,6 +47,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       DB_SSLMODE: disable
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me-in-production}
     ports:
       - "8080:8080"
     restart: unless-stopped

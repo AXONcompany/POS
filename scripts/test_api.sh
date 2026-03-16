@@ -153,17 +153,38 @@ assert_status "POST /mesas (crear)" 201 "$STATUS" "$BODY"
 MESA_ID=$(echo "$BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null || echo "0")
 
 if [ "$MESA_ID" != "0" ]; then
-    # Get by ID
+    # Verificar estado default LIBRE
     RAW=$(api GET /mesas/$MESA_ID)
     parse_response "$RAW"
     assert_status "GET /mesas/$MESA_ID" 200 "$STATUS" "$BODY"
+    assert_json_field "Mesa estado default" "$BODY" "['data']['state']" "LIBRE"
 
-    # Update estado
-    RAW=$(api PATCH /mesas/$MESA_ID/estado -d '{"estado":"occupied"}')
+    # Update estado a OCUPADA
+    RAW=$(api PATCH /mesas/$MESA_ID/estado -d '{"estado":"OCUPADA"}')
     parse_response "$RAW"
-    assert_status "PATCH /mesas/$MESA_ID/estado" 200 "$STATUS" "$BODY"
+    assert_status "PATCH /mesas/$MESA_ID/estado (OCUPADA)" 200 "$STATUS" "$BODY"
 
+    # Update estado a RESERVADA
+    RAW=$(api PATCH /mesas/$MESA_ID/estado -d '{"estado":"RESERVADA"}')
+    parse_response "$RAW"
+    assert_status "PATCH /mesas/$MESA_ID/estado (RESERVADA)" 200 "$STATUS" "$BODY"
 
+    # Update estado invalido
+    RAW=$(api PATCH /mesas/$MESA_ID/estado -d '{"estado":"invalido"}')
+    parse_response "$RAW"
+    assert_status "PATCH estado invalido" 400 "$STATUS" "$BODY"
+
+    # Asignar mesero a mesa
+    RAW=$(api POST /mesas/$MESA_ID/asignar -d '{"user_id":1}')
+    parse_response "$RAW"
+    assert_status "POST /mesas/$MESA_ID/asignar" 200 "$STATUS" "$BODY"
+    assert_json_field "Asignacion success" "$BODY" "['success']" "True"
+
+    # Historial de asignaciones
+    RAW=$(api GET /mesas/$MESA_ID/asignaciones)
+    parse_response "$RAW"
+    assert_status "GET /mesas/$MESA_ID/asignaciones" 200 "$STATUS" "$BODY"
+    assert_json_field "Asignaciones success" "$BODY" "['success']" "True"
 
     # Delete
     RAW=$(api DELETE /mesas/$MESA_ID)

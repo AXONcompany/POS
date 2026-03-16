@@ -45,6 +45,16 @@ func (m *MockRepository) ListByTable(ctx context.Context, tableID int64, venueID
 	return nil, args.Error(1)
 }
 
+func (m *MockRepository) AddItems(ctx context.Context, orderID int64, venueID int, items []domainOrder.OrderItem) error {
+	args := m.Called(ctx, orderID, venueID, items)
+	return args.Error(0)
+}
+
+func (m *MockRepository) RemoveItem(ctx context.Context, orderID int64, venueID int, itemID int64) error {
+	args := m.Called(ctx, orderID, venueID, itemID)
+	return args.Error(0)
+}
+
 func TestCreateOrder(t *testing.T) {
 	ctx := context.Background()
 	tableID := int64(1)
@@ -101,13 +111,42 @@ func TestCreateOrder(t *testing.T) {
 }
 
 func TestAddProductToOrder(t *testing.T) {
-	repo := new(MockRepository)
-	uc := order.NewUsecase(repo)
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {
-		err := uc.AddProductToOrder(ctx, 1, 1, []domainOrder.OrderItem{})
+		repo := new(MockRepository)
+		uc := order.NewUsecase(repo)
+
+		items := []domainOrder.OrderItem{
+			{ProductID: 1, Quantity: 2},
+		}
+		repo.On("AddItems", ctx, int64(1), 1, items).Return(nil)
+
+		err := uc.AddProductToOrder(ctx, 1, 1, items)
 		assert.NoError(t, err)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("empty items returns error", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := order.NewUsecase(repo)
+
+		err := uc.AddProductToOrder(ctx, 1, 1, []domainOrder.OrderItem{})
+		assert.Error(t, err)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("repo error", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := order.NewUsecase(repo)
+
+		items := []domainOrder.OrderItem{
+			{ProductID: 1, Quantity: 1},
+		}
+		repo.On("AddItems", ctx, int64(1), 1, items).Return(errors.New("db error"))
+
+		err := uc.AddProductToOrder(ctx, 1, 1, items)
+		assert.Error(t, err)
 		repo.AssertExpectations(t)
 	})
 }
@@ -190,5 +229,34 @@ func TestListOrdersByTable(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, list, 1)
 		repo.AssertExpectations(t)
+	})
+}
+
+func TestCancelOrderItem(t *testing.T) {
+	ctx := context.Background()
+	venueID := 1
+	orderID := int64(10)
+	itemID := int64(100)
+
+	t.Run("success", func(t *testing.T) {
+		mockRepo := new(MockRepository)
+		uc := order.NewUsecase(mockRepo)
+
+		mockRepo.On("RemoveItem", ctx, orderID, venueID, itemID).Return(nil)
+
+		err := uc.CancelOrderItem(ctx, venueID, orderID, itemID)
+		assert.NoError(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("repo_error", func(t *testing.T) {
+		mockRepo := new(MockRepository)
+		uc := order.NewUsecase(mockRepo)
+
+		mockRepo.On("RemoveItem", ctx, orderID, venueID, itemID).Return(errors.New("db error"))
+
+		err := uc.CancelOrderItem(ctx, venueID, orderID, itemID)
+		assert.ErrorContains(t, err, "db error")
+		mockRepo.AssertExpectations(t)
 	})
 }

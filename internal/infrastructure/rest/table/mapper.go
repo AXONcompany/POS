@@ -6,10 +6,14 @@ import (
 
 // ToDomain convierte el JSON de entrada a la Entidad de Dominio
 func ToDomain(req CreateRequest) *table.Table {
+	status := req.Status
+	if status == "" {
+		status = table.StatusLibre
+	}
 	return &table.Table{
 		Number:   req.Number,
 		Capacity: req.Capacity,
-		Status:   req.Status,
+		Status:   status,
 	}
 }
 

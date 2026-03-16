@@ -44,6 +44,7 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 	{
 		authPublic.POST("/login", authHandler.Login)
 		authPublic.POST("/register-owner", authHandler.RegisterOwner)
+		authPublic.POST("/refresh", authHandler.Refresh)
 	}
 
 	// --- AUTH (protegido) ---
@@ -53,6 +54,7 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 		authProtected.POST("/register", middleware.RequireRoles(RolePropietario, RoleCajero), authHandler.Register)
 		authProtected.GET("/me", authHandler.Me)
 		authProtected.POST("/logout", authHandler.Logout)
+		authProtected.POST("/switch-sede", middleware.RequireRoles(RolePropietario), authHandler.SwitchSede)
 	}
 
 	// Protected API Group
@@ -69,22 +71,21 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 
 		// --- SEDES ---
 		sedes := api.Group("/sedes")
-		sedes.Use(middleware.RequireRoles(RolePropietario))
 		{
-			sedes.POST("", venueHandler.Create)
-			sedes.GET("", venueHandler.List)
-			sedes.GET("/:id", venueHandler.GetByID)
-			sedes.PATCH("/:id", venueHandler.Update)
+			sedes.GET("/mi-sede", middleware.RequireRoles(RoleCajero, RoleMesero, RolePropietario), venueHandler.GetMyVenue)
+			sedes.POST("", middleware.RequireRoles(RolePropietario), venueHandler.Create)
+			sedes.GET("", middleware.RequireRoles(RolePropietario), venueHandler.List)
+			sedes.GET("/:id", middleware.RequireRoles(RolePropietario), venueHandler.GetByID)
+			sedes.PATCH("/:id", middleware.RequireRoles(RolePropietario), venueHandler.Update)
 		}
 
 		// --- TERMINALES POS ---
 		terminales := api.Group("/terminales")
-		terminales.Use(middleware.RequireRoles(RolePropietario))
 		{
-			terminales.POST("", posHandler.Create)
-			terminales.GET("", posHandler.List)
-			terminales.GET("/:id", posHandler.GetByID)
-			terminales.PATCH("/:id", posHandler.Update)
+			terminales.POST("", middleware.RequireRoles(RolePropietario), posHandler.Create)
+			terminales.GET("", middleware.RequireRoles(RolePropietario, RoleCajero), posHandler.List)
+			terminales.GET("/:id", middleware.RequireRoles(RolePropietario, RoleCajero), posHandler.GetByID)
+			terminales.PATCH("/:id", middleware.RequireRoles(RolePropietario), posHandler.Update)
 		}
 
 		// --- MESAS ---
@@ -94,8 +95,10 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 			mesas.GET("/:id", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), tableHandler.GetByID)
 
 			mesas.POST("", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.Create)
-			mesas.PATCH("/:id/estado", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.UpdateEstado)
+			mesas.PATCH("/:id/estado", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), tableHandler.UpdateEstado)
 			mesas.DELETE("/:id", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.Delete)
+			mesas.POST("/:id/asignar", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.AssignWaiter)
+			mesas.GET("/:id/asignaciones", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.GetAssignments)
 		}
 
 		// --- INGREDIENTES ---
@@ -158,7 +161,7 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 		// --- USUARIOS ---
 		usuarios := api.Group("/usuarios")
 		{
-			usuarios.GET("", middleware.RequireRoles(RolePropietario), userHandler.GetAll)
+			usuarios.GET("", middleware.RequireRoles(RolePropietario, RoleCajero), userHandler.GetAll)
 			usuarios.GET("/:id", middleware.RequireRoles(RolePropietario), userHandler.GetByID)
 			usuarios.PATCH("/:id", middleware.RequireRoles(RolePropietario), userHandler.Update)
 			usuarios.DELETE("/:id", middleware.RequireRoles(RolePropietario), userHandler.Delete)

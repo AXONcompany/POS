@@ -20,8 +20,8 @@ func NewHandler(usecase *uc.Usecase) *Handler {
 }
 
 var roleNames = map[int]string{
-	1: "ADMIN",
-	2: "CAJA",
+	1: "PROPIETARIO",
+	2: "CAJERO",
 	3: "MESERO",
 }
 
@@ -141,6 +141,23 @@ func (h *Handler) Delete(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("ID invalido", "BAD_REQUEST"))
+		return
+	}
+
+	targetUser, err := h.uc.GetUserByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, httputil.ErrorResponse("Usuario no encontrado", "NOT_FOUND"))
+		return
+	}
+
+	requestRoleID, exists := c.Get(middleware.RoleIDKey)
+	if !exists || requestRoleID.(int) != 1 {
+		c.JSON(http.StatusForbidden, httputil.ErrorResponse("Solo los propietarios pueden eliminar usuarios", "FORBIDDEN"))
+		return
+	}
+	
+	if targetUser.RoleID == 1 {
+		c.JSON(http.StatusForbidden, httputil.ErrorResponse("No se puede eliminar a otro administrador/propietario", "FORBIDDEN"))
 		return
 	}
 

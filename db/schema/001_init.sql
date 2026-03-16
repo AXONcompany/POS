@@ -186,6 +186,16 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Table Assignments (waiter-to-table history)
+CREATE TABLE IF NOT EXISTS table_assignments (
+    id BIGSERIAL PRIMARY KEY,
+    table_id BIGINT NOT NULL REFERENCES tables(id_table) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    venue_id INTEGER NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    unassigned_at TIMESTAMPTZ NULL
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_venues_owner_id ON venues(owner_id);
 CREATE INDEX IF NOT EXISTS idx_pos_terminals_venue_id ON pos_terminals(venue_id);
@@ -199,3 +209,7 @@ CREATE INDEX IF NOT EXISTS idx_categories_venue_id ON categories(venue_id);
 CREATE INDEX IF NOT EXISTS idx_tables_venue_id ON tables(venue_id);
 CREATE INDEX IF NOT EXISTS idx_orders_venue_id ON orders(venue_id);
 CREATE INDEX IF NOT EXISTS idx_payments_venue_id ON payments(venue_id);
+CREATE INDEX IF NOT EXISTS idx_table_assignments_table ON table_assignments(table_id);
+CREATE INDEX IF NOT EXISTS idx_table_assignments_user ON table_assignments(user_id);
+CREATE INDEX IF NOT EXISTS idx_table_assignments_venue ON table_assignments(venue_id);
+

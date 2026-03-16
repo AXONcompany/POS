@@ -131,3 +131,27 @@ func (h *Handler) Update(c *gin.Context) {
 		"activo":    updated.IsActive,
 	}))
 }
+
+// GetMyVenue devuelve la sede del usuario autenticado usando venue_id del JWT.
+func (h *Handler) GetMyVenue(c *gin.Context) {
+	venueID, exists := c.Get(middleware.VenueIDKey)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, httputil.ErrorResponse("unauthorized", "UNAUTHORIZED"))
+		return
+	}
+
+	v, err := h.uc.GetVenueByID(c.Request.Context(), venueID.(int))
+	if err != nil {
+		c.JSON(http.StatusNotFound, httputil.ErrorResponse("Sede no encontrada", "NOT_FOUND"))
+		return
+	}
+
+	c.JSON(http.StatusOK, httputil.SuccessResponse(gin.H{
+		"id":        v.ID,
+		"nombre":    v.Name,
+		"direccion": v.Address,
+		"telefono":  v.Phone,
+		"activo":    v.IsActive,
+		"creado_en": v.CreatedAt,
+	}))
+}

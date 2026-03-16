@@ -31,7 +31,7 @@ func NewRouter(cfg config.Config, ingredientHandler *ingredient.IngredientHandle
 
 	// CORS Setup
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"}, // TODO: Para prod real, especificar el dominio
+		AllowOrigins:     cfg.CorsOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},

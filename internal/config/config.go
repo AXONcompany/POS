@@ -32,6 +32,7 @@ type Config struct {
 	DBMaxIdleConns int32
 	DBConnMaxLife  time.Duration
 	JWTSecret      string
+	CorsOrigins    []string
 }
 
 func Load() (Config, error) {
@@ -53,6 +54,11 @@ func Load() (Config, error) {
 		PGMaxConns: getI32Env("PG_MAX_CONNS", 10),
 	}
 
+	rawCors := getEnv("CORS_ORIGINS", "*")
+	if rawCors != "" {
+		cfg.CorsOrigins = strings.Split(rawCors, ",")
+	}
+
 	cfg.Env = strings.ToLower(strings.TrimSpace(cfg.Env))
 	if cfg.Env != "dev" && cfg.Env != "prod" {
 		return Config{}, fmt.Errorf("variable de entorno inválida < APP_ENV: %q > debe ser <dev> o <prod>", cfg.Env)
@@ -67,6 +73,11 @@ func Load() (Config, error) {
 		strings.TrimSpace(cfg.PGUser) == "" ||
 		strings.TrimSpace(cfg.PGDatabase) == "" {
 		return Config{}, fmt.Errorf("faltan variables de Postgres (PG_HOST/PG_PORT/PG_USER/PG_DATABASE)")
+	}
+
+	cfg.JWTSecret = getEnv("JWT_SECRET", "dev-secret-change-me-in-production")
+	if cfg.Env == "prod" && (cfg.JWTSecret == "" || cfg.JWTSecret == "dev-secret-change-me-in-production") {
+		return Config{}, fmt.Errorf("JWT_SECRET es obligatorio en produccion y debe ser un valor seguro")
 	}
 
 	return cfg, nil

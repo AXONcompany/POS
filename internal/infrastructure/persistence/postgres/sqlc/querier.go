@@ -10,6 +10,7 @@ import (
 
 type Querier interface {
 	AddRecipeItem(ctx context.Context, arg AddRecipeItemParams) (Recipe, error)
+	AssignWaiterToTable(ctx context.Context, arg AssignWaiterToTableParams) (TableAssignment, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
 	CreateIngredient(ctx context.Context, arg CreateIngredientParams) (Ingredient, error)
 	CreateOwner(ctx context.Context, arg CreateOwnerParams) (Owner, error)
@@ -24,6 +25,7 @@ type Querier interface {
 	DeleteProduct(ctx context.Context, arg DeleteProductParams) error
 	DeleteRecipeItem(ctx context.Context, id int64) error
 	DeleteTable(ctx context.Context, arg DeleteTableParams) error
+	GetActiveAssignment(ctx context.Context, arg GetActiveAssignmentParams) (TableAssignment, error)
 	GetCategory(ctx context.Context, arg GetCategoryParams) (Category, error)
 	GetIngredientByID(ctx context.Context, arg GetIngredientByIDParams) (Ingredient, error)
 	GetOwnerByEmail(ctx context.Context, email string) (Owner, error)
@@ -38,7 +40,9 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id int32) (User, error)
 	GetVenueByID(ctx context.Context, id int32) (Venue, error)
+	ListActiveAssignmentsByVenue(ctx context.Context, venueID int32) ([]ListActiveAssignmentsByVenueRow, error)
 	ListAllIngredients(ctx context.Context, venueID int32) ([]Ingredient, error)
+	ListAssignmentsByTable(ctx context.Context, arg ListAssignmentsByTableParams) ([]ListAssignmentsByTableRow, error)
 	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error)
 	ListIngredients(ctx context.Context, arg ListIngredientsParams) ([]Ingredient, error)
 	ListOwners(ctx context.Context) ([]Owner, error)
@@ -48,6 +52,7 @@ type Querier interface {
 	ListUsersByVenue(ctx context.Context, venueID int32) ([]User, error)
 	ListVenuesByOwner(ctx context.Context, ownerID int32) ([]Venue, error)
 	RevokeSession(ctx context.Context, refreshToken string) error
+	UnassignWaiterFromTable(ctx context.Context, arg UnassignWaiterFromTableParams) error
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateIngredient(ctx context.Context, arg UpdateIngredientParams) (Ingredient, error)
 	UpdateOwner(ctx context.Context, arg UpdateOwnerParams) (Owner, error)

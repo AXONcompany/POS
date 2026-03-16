@@ -152,6 +152,15 @@ type Table struct {
 	ArrivalTime pgtype.Timestamptz `json:"arrival_time"`
 }
 
+type TableAssignment struct {
+	ID           int64              `json:"id"`
+	TableID      int64              `json:"table_id"`
+	UserID       int32              `json:"user_id"`
+	VenueID      int32              `json:"venue_id"`
+	AssignedAt   pgtype.Timestamptz `json:"assigned_at"`
+	UnassignedAt pgtype.Timestamptz `json:"unassigned_at"`
+}
+
 type User struct {
 	ID           int32              `json:"id"`
 	VenueID      int32              `json:"venue_id"`

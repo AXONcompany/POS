@@ -46,7 +46,7 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 
 	u := tokens.User
-	c.SetCookie("refresh_token", tokens.RefreshToken, int(7*24*time.Hour.Seconds()), "/", "", true, true)
+	c.SetCookie("refresh_token", tokens.RefreshToken, int(24*time.Hour.Seconds()), "/", "", true, true)
 
 	rol := roleNames[u.RoleID]
 	if rol == "" {
@@ -180,7 +180,7 @@ func (h *Handler) RegisterOwner(c *gin.Context) {
 	}
 
 	u := tokens.User
-	c.SetCookie("refresh_token", tokens.RefreshToken, int(7*24*time.Hour.Seconds()), "/", "", true, true)
+	c.SetCookie("refresh_token", tokens.RefreshToken, int(24*time.Hour.Seconds()), "/", "", true, true)
 
 	c.JSON(http.StatusCreated, httputil.SuccessResponse(gin.H{
 		"token": tokens.AccessToken,
@@ -286,4 +286,89 @@ func (h *Handler) Logout(c *gin.Context) {
 	_ = h.uc.RevokeSession(c.Request.Context(), refreshToken)
 	c.SetCookie("refresh_token", "", -1, "/", "", true, true)
 	c.JSON(http.StatusOK, httputil.SuccessMessageResponse("Sesion cerrada exitosamente"))
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+// Refresh renueva el access token usando el refresh token.
+// El refresh token se puede enviar como cookie o en el body JSON.
+func (h *Handler) Refresh(c *gin.Context) {
+	// Intentar obtener de cookie primero
+	refreshToken, err := c.Cookie("refresh_token")
+	if err != nil {
+		// Fallback al body
+		var req RefreshRequest
+		if err := c.ShouldBindJSON(&req); err == nil && req.RefreshToken != "" {
+			refreshToken = req.RefreshToken
+		}
+	}
+
+	if refreshToken == "" {
+		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("Refresh token requerido", "BAD_REQUEST"))
+		return
+	}
+
+	tokens, err := h.uc.RefreshToken(c.Request.Context(), refreshToken)
+	if err != nil {
+		// Limpiar cookie invalida
+		c.SetCookie("refresh_token", "", -1, "/", "", true, true)
+		c.JSON(http.StatusUnauthorized, httputil.ErrorResponse("Token invalido o expirado", "UNAUTHORIZED"))
+		return
+	}
+
+	u := tokens.User
+	// Setear nueva cookie con el nuevo refresh token
+	c.SetCookie("refresh_token", tokens.RefreshToken, int(24*time.Hour.Seconds()), "/", "", true, true)
+
+	c.JSON(http.StatusOK, httputil.SuccessResponse(gin.H{
+		"token":      tokens.AccessToken,
+		"expires_in": 900,
+		"usuario": gin.H{
+			"id":     u.ID,
+			"nombre": u.Name,
+			"email":  u.Email,
+			"rol":    roleNames[u.RoleID],
+		},
+	}))
+}
+
+type SwitchSedeRequest struct {
+	SedeID int `json:"sede_id" binding:"required"`
+}
+
+// SwitchSede maneja POST /auth/switch-sede.
+func (h *Handler) SwitchSede(c *gin.Context) {
+	var req SwitchSedeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("Dato inválido: sede_id es requerido", "BAD_REQUEST"))
+		return
+	}
+
+	userID, exists := c.Get(middleware.UserIDKey)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, httputil.ErrorResponse("unauthorized", "UNAUTHORIZED"))
+		return
+	}
+
+	deviceInfo := c.Request.UserAgent()
+	ipAddress := c.ClientIP()
+
+	resp, err := h.uc.SwitchSede(c.Request.Context(), userID.(int), req.SedeID, deviceInfo, ipAddress)
+	if err != nil {
+		c.JSON(http.StatusForbidden, httputil.ErrorResponse(err.Error(), "FORBIDDEN"))
+		return
+	}
+
+	secure := false
+	if c.Request.TLS != nil {
+		secure = true
+	}
+	c.SetCookie("refresh_token", resp.RefreshToken, int(7*24*time.Hour.Seconds()), "/", "", secure, true)
+
+	c.JSON(http.StatusOK, httputil.SuccessResponse(gin.H{
+		"token":      resp.AccessToken,
+		"expires_in": 900,
+	}))
 }

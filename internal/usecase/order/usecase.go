@@ -12,6 +12,8 @@ type Repository interface {
 	GetByID(ctx context.Context, id int64, venueID int) (*domainOrder.Order, error)
 	UpdateStatus(ctx context.Context, id int64, venueID int, statusID int) error
 	ListByTable(ctx context.Context, tableID int64, venueID int) ([]domainOrder.Order, error)
+	AddItems(ctx context.Context, orderID int64, venueID int, items []domainOrder.OrderItem) error
+	RemoveItem(ctx context.Context, orderID int64, venueID int, itemID int64) error
 }
 
 type Usecase struct {
@@ -45,8 +47,10 @@ func (uc *Usecase) CreateOrderWithoutItems(ctx context.Context, venueID, userID 
 }
 
 func (uc *Usecase) AddProductToOrder(ctx context.Context, venueID int, orderID int64, items []domainOrder.OrderItem) error {
-	// TODO: Implementar logica completa de agregar items a orden existente
-	return nil
+	if len(items) == 0 {
+		return fmt.Errorf("at least one item is required")
+	}
+	return uc.repo.AddItems(ctx, orderID, venueID, items)
 }
 
 func (uc *Usecase) GetOrderByID(ctx context.Context, venueID int, orderID int64) (*domainOrder.Order, error) {
@@ -68,7 +72,5 @@ func (uc *Usecase) UpdateOrderStatus(ctx context.Context, venueID int, orderID i
 
 // CancelOrderItem cancela un item de una orden.
 func (uc *Usecase) CancelOrderItem(ctx context.Context, venueID int, orderID, itemID int64) error {
-	// TODO: Implementar logica completa de cancelar item
-	_ = fmt.Sprintf("cancelando item %d de orden %d", itemID, orderID)
-	return nil
+	return uc.repo.RemoveItem(ctx, orderID, venueID, itemID)
 }
