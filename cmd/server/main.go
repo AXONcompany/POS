@@ -36,7 +36,6 @@ import (
 )
 
 func main() {
-
 	cfg, err := appcfg.Load()
 	if err != nil {
 		log.Fatalf("config error: %v", err)
@@ -56,6 +55,7 @@ func main() {
 	userRepo := apppg.NewUserRepository(db)
 	sessionRepo := apppg.NewSessionRepository(db)
 	orderRepo := apppg.NewOrderRepository(db)
+	auditRepo := apppg.NewAuditRepository(db)
 	paymentRepo := apppg.NewPaymentRepository(db)
 	reportRepo := apppg.NewReportRepository(db)
 	tableRepo := apppg.NewTableRepository(db)
@@ -67,7 +67,7 @@ func main() {
 	ingredientService := uing.NewUsecase(ingredientRepo)
 	productService := uproducts.NewUsecase(productRepo, categoryRepo, recipeRepo)
 	authUsecase := uauth.NewUsecase(userRepo, sessionRepo, cfg.JWTSecret, ownerRepo, venueRepo)
-	orderUsecase := uorder.NewUsecase(orderRepo)
+	orderUsecase := uorder.NewUsecase(orderRepo, productRepo, auditRepo)
 	userUsecase := uuser.NewUsecase(userRepo)
 	paymentUsecase := upayment.NewUsecase(paymentRepo)
 	reportUsecase := ureport.NewUsecase(reportRepo)
@@ -126,5 +126,4 @@ func main() {
 	case <-shutdownTimer.C:
 	}
 	log.Printf("server stopped")
-
 }

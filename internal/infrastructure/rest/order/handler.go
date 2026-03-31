@@ -1,6 +1,7 @@
 package order
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -157,6 +158,14 @@ func (h *Handler) AddItems(c *gin.Context) {
 
 	err = h.uc.AddProductToOrder(c.Request.Context(), venueID.(int), orderID, items)
 	if err != nil {
+		if errors.Is(err, domainOrder.ErrInvalidStatusTransition) {
+			c.JSON(http.StatusUnprocessableEntity, httputil.ErrorResponse("La orden no acepta mas items en su estado actual", "INVALID_TRANSITION"))
+			return
+		}
+		if errors.Is(err, domainOrder.ErrInsufficientStock) {
+			c.JSON(http.StatusConflict, httputil.ErrorResponse("Stock insuficiente para uno o mas ingredientes", "INSUFFICIENT_STOCK"))
+			return
+		}
 		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse("Error al agregar items", "INTERNAL_ERROR"))
 		return
 	}
@@ -185,9 +194,18 @@ func (h *Handler) CancelItem(c *gin.Context) {
 	}
 
 	venueID, _ := c.Get(middleware.VenueIDKey)
+	userID, _ := c.Get(middleware.UserIDKey)
 
-	err = h.uc.CancelOrderItem(c.Request.Context(), venueID.(int), orderID, itemID)
+	err = h.uc.CancelOrderItem(c.Request.Context(), venueID.(int), userID.(int), orderID, itemID)
 	if err != nil {
+		if errors.Is(err, domainOrder.ErrItemAlreadyCancelled) {
+			c.JSON(http.StatusConflict, httputil.ErrorResponse("El item ya fue cancelado", "ITEM_ALREADY_CANCELLED"))
+			return
+		}
+		if errors.Is(err, domainOrder.ErrInvalidStatusTransition) {
+			c.JSON(http.StatusUnprocessableEntity, httputil.ErrorResponse("No se pueden cancelar items de una orden en este estado", "INVALID_TRANSITION"))
+			return
+		}
 		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse("Error al cancelar item", "INTERNAL_ERROR"))
 		return
 	}
@@ -207,6 +225,10 @@ func (h *Handler) SendToKitchen(c *gin.Context) {
 	// Cambiar estado a "enviada" (status_id = 2)
 	err = h.uc.UpdateOrderStatus(c.Request.Context(), venueID.(int), orderID, 2)
 	if err != nil {
+		if errors.Is(err, domainOrder.ErrInvalidStatusTransition) {
+			c.JSON(http.StatusUnprocessableEntity, httputil.ErrorResponse("Transicion de estado invalida", "INVALID_TRANSITION"))
+			return
+		}
 		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse("Error al enviar a cocina", "INTERNAL_ERROR"))
 		return
 	}
@@ -224,6 +246,10 @@ func (h *Handler) CheckoutOrder(c *gin.Context) {
 
 	err = h.uc.CheckoutOrder(c.Request.Context(), venueID.(int), orderID)
 	if err != nil {
+		if errors.Is(err, domainOrder.ErrInvalidStatusTransition) {
+			c.JSON(http.StatusUnprocessableEntity, httputil.ErrorResponse("La orden no esta lista para pago", "INVALID_TRANSITION"))
+			return
+		}
 		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse("Error en checkout", "INTERNAL_ERROR"))
 		return
 	}
@@ -249,6 +275,10 @@ func (h *Handler) UpdateOrderStatus(c *gin.Context) {
 
 	err = h.uc.UpdateOrderStatus(c.Request.Context(), venueID.(int), orderID, req.StatusID)
 	if err != nil {
+		if errors.Is(err, domainOrder.ErrInvalidStatusTransition) {
+			c.JSON(http.StatusUnprocessableEntity, httputil.ErrorResponse("Transicion de estado invalida", "INVALID_TRANSITION"))
+			return
+		}
 		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse("Error al actualizar estado", "INTERNAL_ERROR"))
 		return
 	}

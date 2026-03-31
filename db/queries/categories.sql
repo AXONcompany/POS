@@ -28,3 +28,4 @@ returning id, venue_id, created_at, updated_at, deleted_at, category_name;
 update categories
 set deleted_at = now()
 where id = $1 and venue_id = $2 and deleted_at is null;
+

@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Gestión de Comandas por Meseros
 
@@ -15,14 +15,3 @@ El sistema DEBE permitir exclusivamente a los usuarios con el rol `MESERO` la cr
 #### Scenario: Adición de producto con stock insuficiente
 - **WHEN** el usuario autenticado tiene el rol `MESERO` y agrega un producto cuyos ingredientes no tienen stock suficiente
 - **THEN** el sistema rechaza la operación con error `ErrInsufficientStock` (HTTP 409) sin modificar la orden ni el inventario
-
-### Requirement: Cobro y Cierre de Órdenes por Cajeros
-El sistema DEBE restringir la finalización de órdenes (facturación, recibo de pagos) a los usuarios con rol `CAJERO`.
-
-#### Scenario: Facturación de mesa
-- **WHEN** el usuario autenticado tiene el rol `CAJERO` e intenta cerrar y pagar una orden existente.
-- **THEN** el sistema liquida la orden, registra los pagos y emite el recibo electrónico de venta para ese restaurante.
-
-#### Scenario: Intento de facturación por mesero
-- **WHEN** un usuario con rol `MESERO` intenta cerrar el pago de una orden.
-- **THEN** el sistema rechaza la operación por falta de privilegios (Forbidden).

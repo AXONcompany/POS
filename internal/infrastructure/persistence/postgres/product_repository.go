@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	domainOrder "github.com/AXONcompany/POS/internal/domain/order"
 	"github.com/AXONcompany/POS/internal/domain/product"
 	"github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -105,6 +106,34 @@ func (r *ProductRepository) DeleteProduct(ctx context.Context, id int64, venueID
 		ID:      id,
 		VenueID: int32(venueID),
 	})
+}
+
+func (r *ProductRepository) GetProductPrice(ctx context.Context, productID int64, venueID int) (float64, error) {
+	row, err := r.q.GetProduct(ctx, sqlc.GetProductParams{
+		ID:      productID,
+		VenueID: int32(venueID),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("get product price: %w", err)
+	}
+	val, _ := row.SalesPrice.Float64Value()
+	return val.Float64, nil
+}
+
+func (r *ProductRepository) GetRecipeLines(ctx context.Context, productID int64) ([]domainOrder.RecipeLine, error) {
+	rows, err := r.q.GetRecipeByProductID(ctx, productID)
+	if err != nil {
+		return nil, fmt.Errorf("get recipe lines: %w", err)
+	}
+	lines := make([]domainOrder.RecipeLine, len(rows))
+	for i, row := range rows {
+		qty, _ := row.QuantityRequired.Float64Value()
+		lines[i] = domainOrder.RecipeLine{
+			IngredientID:     row.IngredientID,
+			QuantityRequired: qty.Float64,
+		}
+	}
+	return lines, nil
 }
 
 func (r *ProductRepository) CreateProductWithRecipe(ctx context.Context, p product.Product, items []product.RecipeItem) (*product.Product, error) {
