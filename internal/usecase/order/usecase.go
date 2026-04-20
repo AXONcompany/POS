@@ -18,6 +18,8 @@ type Repository interface {
 	ListByTable(ctx context.Context, tableID int64, venueID int) ([]domainOrder.Order, error)
 	AddItemsWithInventory(ctx context.Context, orderID int64, venueID int, items []domainOrder.OrderItem, deductions []domainOrder.StockDeduction) error
 	CancelItemWithInventoryRestore(ctx context.Context, itemID, orderID int64, venueID int, restorations []domainOrder.StockDeduction) error
+	CreateDivisions(ctx context.Context, divisions []domainOrder.OrderDivision) error
+	GetDivisionsByOrderID(ctx context.Context, orderID int64, venueID int) ([]domainOrder.OrderDivision, error)
 }
 
 type ProductInventoryRepository interface {
@@ -186,4 +188,103 @@ func (uc *Usecase) CancelOrderItem(ctx context.Context, venueID, userID int, ord
 		UserID:     userID,
 		VenueID:    venueID,
 	})
+}
+
+func (uc *Usecase) DivideOrder(ctx context.Context, venueID int, orderID int64, divisionType string, numParts int, customAmounts []float64) ([]domainOrder.OrderDivision, error) {
+	order, err := uc.repo.GetByID(ctx, orderID, venueID)
+	if err != nil {
+		return nil, fmt.Errorf("get order: %w", err)
+	}
+
+	subtotal := order.TotalAmount
+	impuestos := subtotal * 0.19
+	total := subtotal + impuestos
+
+	var divisions []domainOrder.OrderDivision
+
+	switch divisionType {
+	case "partes_iguales":
+		parts := numParts
+		if parts <= 0 {
+			parts = 2
+		}
+		partSubtotal := subtotal / float64(parts)
+		partImpuestos := impuestos / float64(parts)
+		partTotal := total / float64(parts)
+
+		divisions = make([]domainOrder.OrderDivision, parts)
+		for i := 0; i < parts; i++ {
+			divisions[i] = domainOrder.OrderDivision{
+				ID:           fmt.Sprintf("div_%d_%d", orderID, i+1),
+				OrderID:      orderID,
+				VenueID:      venueID,
+				DivisionType: divisionType,
+				Amount:       partSubtotal,
+				Tax:          partImpuestos,
+				Total:        partTotal,
+				IsPaid:       false,
+			}
+		}
+
+	case "por_monto":
+		remaining := total
+		divisions = make([]domainOrder.OrderDivision, 0, len(customAmounts))
+		for i, amount := range customAmounts {
+			divTotal := amount
+			if divTotal > remaining {
+				divTotal = remaining
+			}
+			divSubtotal := divTotal / 1.19
+			divImpuestos := divTotal - divSubtotal
+
+			divisions = append(divisions, domainOrder.OrderDivision{
+				ID:           fmt.Sprintf("div_%d_%d", orderID, i+1),
+				OrderID:      orderID,
+				VenueID:      venueID,
+				DivisionType: divisionType,
+				Amount:       divSubtotal,
+				Tax:          divImpuestos,
+				Total:        divTotal,
+				IsPaid:       false,
+			})
+			remaining -= divTotal
+		}
+
+	case "por_item":
+		parts := len(customAmounts)
+		if parts == 0 {
+			parts = 1
+		}
+		divTotal := total / float64(parts)
+		divSubtotal := divTotal / 1.19
+		divImpuestos := divTotal - divSubtotal
+
+		divisions = make([]domainOrder.OrderDivision, 0, parts)
+		for i := 0; i < parts; i++ {
+			divisions = append(divisions, domainOrder.OrderDivision{
+				ID:           fmt.Sprintf("div_%d_%d", orderID, i+1),
+				OrderID:      orderID,
+				VenueID:      venueID,
+				DivisionType: divisionType,
+				Amount:       divSubtotal,
+				Tax:          divImpuestos,
+				Total:        divTotal,
+				IsPaid:       false,
+			})
+		}
+
+	default:
+		return nil, fmt.Errorf("invalid division type: %s", divisionType)
+	}
+
+	err = uc.repo.CreateDivisions(ctx, divisions)
+	if err != nil {
+		return nil, fmt.Errorf("create divisions: %w", err)
+	}
+
+	return divisions, nil
+}
+
+func (uc *Usecase) GetDivisionsByOrder(ctx context.Context, venueID int, orderID int64) ([]domainOrder.OrderDivision, error) {
+	return uc.repo.GetDivisionsByOrderID(ctx, orderID, venueID)
 }

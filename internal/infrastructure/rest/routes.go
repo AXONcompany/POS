@@ -148,6 +148,7 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 			ordenes.POST("/:id/enviar-cocina", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.SendToKitchen)
 			ordenes.PATCH("/:id/status", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.UpdateOrderStatus)
 			ordenes.POST("/:id/dividir", middleware.RequireRoles(RoleCajero, RolePropietario), orderHandler.DivideOrder)
+			ordenes.GET("/:id/divisiones", middleware.RequireRoles(RoleCajero, RolePropietario), orderHandler.GetDivisions)
 
 			// Checkout
 			checkout := ordenes.Group("/:id/checkout")

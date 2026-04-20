@@ -281,3 +281,79 @@ func (r *OrderRepository) ListByTable(ctx context.Context, tableID int64, venueI
 
 	return orders, nil
 }
+
+func (r *OrderRepository) CreateDivisions(ctx context.Context, divisions []domainOrder.OrderDivision) error {
+	if len(divisions) == 0 {
+		return nil
+	}
+	orderID := divisions[0].OrderID
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Check if any existing division is paid
+	var paidCount int
+	err = tx.QueryRow(ctx, "SELECT count(*) FROM order_divisions WHERE order_id = $1 AND is_paid = true", orderID).Scan(&paidCount)
+	if err != nil {
+		return fmt.Errorf("check paid divisions: %w", err)
+	}
+	if paidCount > 0 {
+		return domainOrder.ErrDivisionAlreadyPaid
+	}
+
+	// Delete existing
+	_, err = tx.Exec(ctx, "DELETE FROM order_divisions WHERE order_id = $1", orderID)
+	if err != nil {
+		return fmt.Errorf("delete old divisions: %w", err)
+	}
+
+	// Insert new divisions
+	var b pgx.Batch
+	insertQuery := `
+		INSERT INTO order_divisions (id, order_id, venue_id, division_type, amount, tax, total, is_paid)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`
+	for _, div := range divisions {
+		b.Queue(insertQuery, div.ID, div.OrderID, div.VenueID, div.DivisionType, div.Amount, div.Tax, div.Total, div.IsPaid)
+	}
+	br := tx.SendBatch(ctx, &b)
+	_, err = br.Exec()
+	if err != nil {
+		br.Close()
+		return fmt.Errorf("insert divisions batch: %w", err)
+	}
+	if err := br.Close(); err != nil {
+		return fmt.Errorf("close batch: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+	return nil
+}
+
+func (r *OrderRepository) GetDivisionsByOrderID(ctx context.Context, orderID int64, venueID int) ([]domainOrder.OrderDivision, error) {
+	query := `
+		SELECT id, order_id, venue_id, division_type, amount, tax, total, is_paid, created_at
+		FROM order_divisions
+		WHERE order_id = $1 AND venue_id = $2
+		ORDER BY id ASC
+	`
+	rows, err := r.db.Pool.Query(ctx, query, orderID, venueID)
+	if err != nil {
+		return nil, fmt.Errorf("query divisions: %w", err)
+	}
+	defer rows.Close()
+
+	var divisions []domainOrder.OrderDivision
+	for rows.Next() {
+		var d domainOrder.OrderDivision
+		if err := rows.Scan(&d.ID, &d.OrderID, &d.VenueID, &d.DivisionType, &d.Amount, &d.Tax, &d.Total, &d.IsPaid, &d.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan division: %w", err)
+		}
+		divisions = append(divisions, d)
+	}
+	return divisions, nil
+}

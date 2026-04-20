@@ -70,6 +70,19 @@ func (m *MockRepository) CancelItemWithInventoryRestore(ctx context.Context, ite
 	return args.Error(0)
 }
 
+func (m *MockRepository) CreateDivisions(ctx context.Context, divisions []domainOrder.OrderDivision) error {
+	args := m.Called(ctx, divisions)
+	return args.Error(0)
+}
+
+func (m *MockRepository) GetDivisionsByOrderID(ctx context.Context, orderID int64, venueID int) ([]domainOrder.OrderDivision, error) {
+	args := m.Called(ctx, orderID, venueID)
+	if args.Get(0) != nil {
+		return args.Get(0).([]domainOrder.OrderDivision), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 // MockAuditRepository is a testify mock for order.AuditRepository
 type MockAuditRepository struct {
 	mock.Mock
@@ -225,6 +238,83 @@ func TestAddProductToOrder(t *testing.T) {
 		err := uc.AddProductToOrder(ctx, 1, 1, items)
 
 		assert.ErrorIs(t, err, domainOrder.ErrInsufficientStock)
+		repo.AssertExpectations(t)
+		invRepo.AssertExpectations(t)
+	})
+
+	t.Run("allowed when order in SENT state", func(t *testing.T) {
+		repo := new(MockRepository)
+		invRepo := new(MockProductInventoryRepository)
+		uc := newUsecase(repo, invRepo)
+
+		items := []domainOrder.OrderItem{{ProductID: 10, Quantity: 1}}
+
+		repo.On("GetStatusByID", ctx, int64(1), 1).Return(2, nil) // SENT
+		invRepo.On("GetProductPrice", ctx, int64(10), 1).Return(10.0, nil)
+		invRepo.On("GetRecipeLines", ctx, int64(10)).Return([]domainOrder.RecipeLine{
+			{IngredientID: 5, QuantityRequired: 50},
+		}, nil)
+		repo.On("AddItemsWithInventory", ctx, int64(1), 1, mock.Anything, mock.Anything).Return(nil)
+
+		err := uc.AddProductToOrder(ctx, 1, 1, items)
+
+		assert.NoError(t, err)
+		repo.AssertExpectations(t)
+		invRepo.AssertExpectations(t)
+	})
+
+	t.Run("error en GetProductPrice se propaga", func(t *testing.T) {
+		repo := new(MockRepository)
+		invRepo := new(MockProductInventoryRepository)
+		uc := newUsecase(repo, invRepo)
+
+		priceErr := errors.New("product not found")
+		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
+		invRepo.On("GetProductPrice", ctx, int64(10), 1).Return(0.0, priceErr)
+
+		err := uc.AddProductToOrder(ctx, 1, 1, []domainOrder.OrderItem{{ProductID: 10, Quantity: 1}})
+
+		assert.ErrorContains(t, err, "product not found")
+		repo.AssertExpectations(t)
+		invRepo.AssertExpectations(t)
+	})
+
+	t.Run("error en GetRecipeLines se propaga", func(t *testing.T) {
+		repo := new(MockRepository)
+		invRepo := new(MockProductInventoryRepository)
+		uc := newUsecase(repo, invRepo)
+
+		recipeErr := errors.New("recipe not found")
+		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
+		invRepo.On("GetProductPrice", ctx, int64(10), 1).Return(10.0, nil)
+		invRepo.On("GetRecipeLines", ctx, int64(10)).Return(nil, recipeErr)
+
+		err := uc.AddProductToOrder(ctx, 1, 1, []domainOrder.OrderItem{{ProductID: 10, Quantity: 1}})
+
+		assert.ErrorContains(t, err, "recipe not found")
+		repo.AssertExpectations(t)
+		invRepo.AssertExpectations(t)
+	})
+
+	t.Run("producto sin receta no genera deducciones", func(t *testing.T) {
+		repo := new(MockRepository)
+		invRepo := new(MockProductInventoryRepository)
+		uc := newUsecase(repo, invRepo)
+
+		items := []domainOrder.OrderItem{{ProductID: 10, Quantity: 2}}
+
+		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
+		invRepo.On("GetProductPrice", ctx, int64(10), 1).Return(10.0, nil)
+		invRepo.On("GetRecipeLines", ctx, int64(10)).Return([]domainOrder.RecipeLine{}, nil)
+		// Sin deducciones: slice vacío
+		repo.On("AddItemsWithInventory", ctx, int64(1), 1,
+			[]domainOrder.OrderItem{{ProductID: 10, Quantity: 2, UnitPrice: 10.0}},
+			[]domainOrder.StockDeduction{},
+		).Return(nil)
+
+		err := uc.AddProductToOrder(ctx, 1, 1, items)
+
+		assert.NoError(t, err)
 		repo.AssertExpectations(t)
 		invRepo.AssertExpectations(t)
 	})
@@ -526,6 +616,75 @@ func TestCancelOrderItem(t *testing.T) {
 		repo.AssertExpectations(t)
 	})
 
+	t.Run("rechazo: orden en estado CANCELLED", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := newUsecase(repo, new(MockProductInventoryRepository))
+
+		repo.On("GetStatusByID", ctx, int64(1), 1).Return(6, nil) // CANCELLED
+
+		err := uc.CancelOrderItem(ctx, 1, 1, 1, 10)
+
+		assert.ErrorIs(t, err, domainOrder.ErrInvalidStatusTransition)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("error en GetOrderItem se propaga", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := newUsecase(repo, new(MockProductInventoryRepository))
+
+		repoErr := errors.New("item not found")
+		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
+		repo.On("GetOrderItem", ctx, int64(10), int64(1)).Return((*domainOrder.OrderItem)(nil), repoErr)
+
+		err := uc.CancelOrderItem(ctx, 1, 1, 1, 10)
+
+		assert.ErrorIs(t, err, repoErr)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("error en CancelItemWithInventoryRestore se propaga", func(t *testing.T) {
+		repo := new(MockRepository)
+		invRepo := new(MockProductInventoryRepository)
+		uc := newUsecase(repo, invRepo)
+
+		item := &domainOrder.OrderItem{ID: 10, OrderID: 1, ProductID: 5, Quantity: 1}
+		restoreErr := errors.New("tx failed")
+
+		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
+		repo.On("GetOrderItem", ctx, int64(10), int64(1)).Return(item, nil)
+		invRepo.On("GetRecipeLines", ctx, int64(5)).Return([]domainOrder.RecipeLine{}, nil)
+		repo.On("CancelItemWithInventoryRestore", ctx, int64(10), int64(1), 1, mock.Anything).Return(restoreErr)
+
+		err := uc.CancelOrderItem(ctx, 1, 1, 1, 10)
+
+		assert.ErrorIs(t, err, restoreErr)
+		repo.AssertExpectations(t)
+		invRepo.AssertExpectations(t)
+	})
+
+	t.Run("error en SaveAudit se propaga", func(t *testing.T) {
+		repo := new(MockRepository)
+		invRepo := new(MockProductInventoryRepository)
+		auditRepo := new(MockAuditRepository)
+		uc := newUsecaseWithAudit(repo, invRepo, auditRepo)
+
+		item := &domainOrder.OrderItem{ID: 10, OrderID: 1, ProductID: 5, Quantity: 1}
+		auditErr := errors.New("audit db error")
+
+		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
+		repo.On("GetOrderItem", ctx, int64(10), int64(1)).Return(item, nil)
+		invRepo.On("GetRecipeLines", ctx, int64(5)).Return([]domainOrder.RecipeLine{}, nil)
+		repo.On("CancelItemWithInventoryRestore", ctx, int64(10), int64(1), 1, mock.Anything).Return(nil)
+		auditRepo.On("SaveAudit", ctx, mock.Anything).Return(auditErr)
+
+		err := uc.CancelOrderItem(ctx, 1, 1, 1, 10)
+
+		assert.ErrorIs(t, err, auditErr)
+		repo.AssertExpectations(t)
+		invRepo.AssertExpectations(t)
+		auditRepo.AssertExpectations(t)
+	})
+
 	t.Run("rechazo: item ya cancelado", func(t *testing.T) {
 		repo := new(MockRepository)
 		uc := newUsecase(repo, new(MockProductInventoryRepository))
@@ -545,6 +704,158 @@ func TestCancelOrderItem(t *testing.T) {
 		err := uc.CancelOrderItem(ctx, 1, 1, 1, 10)
 
 		assert.ErrorIs(t, err, domainOrder.ErrItemAlreadyCancelled)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestDivideOrder(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("DivideOrder en partes iguales calcula y persiste correctamente", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := newUsecase(repo, new(MockProductInventoryRepository))
+
+		order := &domainOrder.Order{ID: 1, TotalAmount: 100.0}
+		repo.On("GetByID", ctx, int64(1), 1).Return(order, nil)
+
+		expectedDivisions := []domainOrder.OrderDivision{
+			{ID: "div_1_1", OrderID: 1, VenueID: 1, DivisionType: "partes_iguales", Amount: 50.0, Tax: 9.5, Total: 59.5, IsPaid: false},
+			{ID: "div_1_2", OrderID: 1, VenueID: 1, DivisionType: "partes_iguales", Amount: 50.0, Tax: 9.5, Total: 59.5, IsPaid: false},
+		}
+
+		repo.On("CreateDivisions", ctx, expectedDivisions).Return(nil)
+
+		divisions, err := uc.DivideOrder(ctx, 1, 1, "partes_iguales", 2, nil)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expectedDivisions, divisions)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("re-division sin pagos vinculados reemplaza divisiones previas", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := newUsecase(repo, new(MockProductInventoryRepository))
+
+		order := &domainOrder.Order{ID: 1, TotalAmount: 100.0}
+		repo.On("GetByID", ctx, int64(1), 1).Return(order, nil)
+		repo.On("CreateDivisions", ctx, mock.Anything).Return(nil)
+
+		_, err := uc.DivideOrder(ctx, 1, 1, "partes_iguales", 3, nil)
+
+		assert.NoError(t, err)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("re-division con pago vinculado retorna ErrDivisionAlreadyPaid", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := newUsecase(repo, new(MockProductInventoryRepository))
+
+		order := &domainOrder.Order{ID: 1, TotalAmount: 100.0}
+		repo.On("GetByID", ctx, int64(1), 1).Return(order, nil)
+		repo.On("CreateDivisions", ctx, mock.Anything).Return(domainOrder.ErrDivisionAlreadyPaid)
+
+		_, err := uc.DivideOrder(ctx, 1, 1, "partes_iguales", 3, nil)
+
+		assert.ErrorIs(t, err, domainOrder.ErrDivisionAlreadyPaid)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("por_monto calcula subtotal e impuesto por monto dado", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := newUsecase(repo, new(MockProductInventoryRepository))
+
+		o := &domainOrder.Order{ID: 2, TotalAmount: 100.0}
+		// total = 100 + 19 = 119; monto 1 = 60, monto 2 = 59
+		repo.On("GetByID", ctx, int64(2), 1).Return(o, nil)
+		repo.On("CreateDivisions", ctx, mock.Anything).Return(nil)
+
+		divisions, err := uc.DivideOrder(ctx, 1, 2, "por_monto", 0, []float64{60.0, 59.0})
+
+		assert.NoError(t, err)
+		assert.Len(t, divisions, 2)
+		assert.InDelta(t, 60.0, divisions[0].Total, 0.01)
+		assert.InDelta(t, 59.0, divisions[1].Total, 0.01)
+		// subtotal + tax = total para cada división
+		assert.InDelta(t, divisions[0].Amount+divisions[0].Tax, divisions[0].Total, 0.01)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("por_item divide en partes iguales según cantidad de montos", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := newUsecase(repo, new(MockProductInventoryRepository))
+
+		o := &domainOrder.Order{ID: 3, TotalAmount: 90.0}
+		repo.On("GetByID", ctx, int64(3), 1).Return(o, nil)
+		repo.On("CreateDivisions", ctx, mock.Anything).Return(nil)
+
+		divisions, err := uc.DivideOrder(ctx, 1, 3, "por_item", 0, []float64{0, 0, 0}) // 3 partes
+
+		assert.NoError(t, err)
+		assert.Len(t, divisions, 3)
+		// Cada parte debe tener el mismo total
+		assert.InDelta(t, divisions[0].Total, divisions[1].Total, 0.01)
+		assert.InDelta(t, divisions[1].Total, divisions[2].Total, 0.01)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("tipo inválido retorna error", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := newUsecase(repo, new(MockProductInventoryRepository))
+
+		o := &domainOrder.Order{ID: 1, TotalAmount: 100.0}
+		repo.On("GetByID", ctx, int64(1), 1).Return(o, nil)
+
+		_, err := uc.DivideOrder(ctx, 1, 1, "tipo_invalido", 2, nil)
+
+		assert.ErrorContains(t, err, "invalid division type")
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("error en GetByID se propaga", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := newUsecase(repo, new(MockProductInventoryRepository))
+
+		repoErr := errors.New("order not found")
+		repo.On("GetByID", ctx, int64(99), 1).Return((*domainOrder.Order)(nil), repoErr)
+
+		_, err := uc.DivideOrder(ctx, 1, 99, "partes_iguales", 2, nil)
+
+		assert.ErrorContains(t, err, "order not found")
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestGetDivisionsByOrder(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("retorna divisiones del repo", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := newUsecase(repo, new(MockProductInventoryRepository))
+
+		expected := []domainOrder.OrderDivision{
+			{ID: "div_1_1", OrderID: 1, VenueID: 1, Amount: 50.0, Tax: 9.5, Total: 59.5},
+			{ID: "div_1_2", OrderID: 1, VenueID: 1, Amount: 50.0, Tax: 9.5, Total: 59.5},
+		}
+		repo.On("GetDivisionsByOrderID", ctx, int64(1), 1).Return(expected, nil)
+
+		divisions, err := uc.GetDivisionsByOrder(ctx, 1, 1)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expected, divisions)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("error de repo se propaga", func(t *testing.T) {
+		repo := new(MockRepository)
+		uc := newUsecase(repo, new(MockProductInventoryRepository))
+
+		repoErr := errors.New("db error")
+		repo.On("GetDivisionsByOrderID", ctx, int64(1), 1).Return(nil, repoErr)
+
+		divisions, err := uc.GetDivisionsByOrder(ctx, 1, 1)
+
+		assert.ErrorIs(t, err, repoErr)
+		assert.Nil(t, divisions)
 		repo.AssertExpectations(t)
 	})
 }

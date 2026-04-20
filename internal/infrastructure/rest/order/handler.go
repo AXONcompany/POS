@@ -1,6 +1,7 @@
 package order
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -8,15 +9,26 @@ import (
 	domainOrder "github.com/AXONcompany/POS/internal/domain/order"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/httputil"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/middleware"
-	uc "github.com/AXONcompany/POS/internal/usecase/order"
 	"github.com/gin-gonic/gin"
 )
 
-type Handler struct {
-	uc *uc.Usecase
+type OrderUsecase interface {
+	CreateOrderWithoutItems(ctx context.Context, venueID, userID int, tableID *int64) (*domainOrder.Order, error)
+	GetOrderByID(ctx context.Context, venueID int, orderID int64) (*domainOrder.Order, error)
+	AddProductToOrder(ctx context.Context, venueID int, orderID int64, items []domainOrder.OrderItem) error
+	CancelOrderItem(ctx context.Context, venueID, userID int, orderID, itemID int64) error
+	UpdateOrderStatus(ctx context.Context, venueID int, orderID int64, statusID int) error
+	CheckoutOrder(ctx context.Context, venueID int, orderID int64) error
+	ListOrdersByTable(ctx context.Context, venueID int, tableID int64) ([]domainOrder.Order, error)
+	DivideOrder(ctx context.Context, venueID int, orderID int64, divisionType string, numParts int, customAmounts []float64) ([]domainOrder.OrderDivision, error)
+	GetDivisionsByOrder(ctx context.Context, venueID int, orderID int64) ([]domainOrder.OrderDivision, error)
 }
 
-func NewHandler(usecase *uc.Usecase) *Handler {
+type Handler struct {
+	uc OrderUsecase
+}
+
+func NewHandler(usecase OrderUsecase) *Handler {
 	return &Handler{uc: usecase}
 }
 
@@ -337,79 +349,61 @@ func (h *Handler) DivideOrder(c *gin.Context) {
 		return
 	}
 
-	// Obtener la orden para calcular division
-	order, err := h.uc.GetOrderByID(c.Request.Context(), venueID.(int), orderID)
+	var customAmounts []float64
+	if req.TipoDivision == "por_monto" || req.TipoDivision == "por_item" {
+		for _, d := range req.Divisiones {
+			customAmounts = append(customAmounts, d.Monto)
+		}
+	}
+
+	divisions, err := h.uc.DivideOrder(c.Request.Context(), venueID.(int), orderID, req.TipoDivision, req.NumeroPartes, customAmounts)
 	if err != nil {
-		c.JSON(http.StatusNotFound, httputil.ErrorResponse("Orden no encontrada", "NOT_FOUND"))
+		if errors.Is(err, domainOrder.ErrDivisionAlreadyPaid) {
+			c.JSON(http.StatusConflict, httputil.ErrorResponse("No se puede re-dividir: ya existen pagos vinculados a divisiones previas", "DIVISION_ALREADY_PAID"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse("Error al calcular division", "INTERNAL_ERROR"))
 		return
 	}
 
-	subtotal := order.TotalAmount
-	impuestos := subtotal * 0.19
-	total := subtotal + impuestos
-
-	var divisions []gin.H
-
-	switch req.TipoDivision {
-	case "partes_iguales":
-		parts := req.NumeroPartes
-		if parts <= 0 {
-			parts = 2
+	result := make([]gin.H, len(divisions))
+	for i, d := range divisions {
+		result[i] = gin.H{
+			"division_id": d.ID,
+			"subtotal":    d.Amount,
+			"impuestos":   d.Tax,
+			"total":       d.Total,
+			"is_paid":     d.IsPaid,
 		}
-		partSubtotal := subtotal / float64(parts)
-		partImpuestos := impuestos / float64(parts)
-		partTotal := total / float64(parts)
+	}
 
-		divisions = make([]gin.H, parts)
-		for i := 0; i < parts; i++ {
-			divisions[i] = gin.H{
-				"division_id": "div_" + strconv.Itoa(i+1),
-				"subtotal":    partSubtotal,
-				"impuestos":   partImpuestos,
-				"total":       partTotal,
-			}
-		}
+	c.JSON(http.StatusOK, httputil.SuccessResponse(result))
+}
 
-	case "por_monto":
-		remaining := total
-		divisions = make([]gin.H, 0, len(req.Divisiones))
-		for i, d := range req.Divisiones {
-			divTotal := d.Monto
-			if divTotal > remaining {
-				divTotal = remaining
-			}
-			divSubtotal := divTotal / 1.19
-			divImpuestos := divTotal - divSubtotal
-
-			divisions = append(divisions, gin.H{
-				"division_id": "div_" + strconv.Itoa(i+1),
-				"subtotal":    divSubtotal,
-				"impuestos":   divImpuestos,
-				"total":       divTotal,
-			})
-			remaining -= divTotal
-		}
-
-	case "por_item":
-		divisions = make([]gin.H, 0, len(req.Divisiones))
-		for i := range req.Divisiones {
-			// En implementacion real se calcularia por items asignados
-			divTotal := total / float64(len(req.Divisiones))
-			divSubtotal := divTotal / 1.19
-			divImpuestos := divTotal - divSubtotal
-
-			divisions = append(divisions, gin.H{
-				"division_id": "div_" + strconv.Itoa(i+1),
-				"subtotal":    divSubtotal,
-				"impuestos":   divImpuestos,
-				"total":       divTotal,
-			})
-		}
-
-	default:
-		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("tipo_division debe ser partes_iguales, por_item o por_monto", "BAD_REQUEST"))
+func (h *Handler) GetDivisions(c *gin.Context) {
+	venueID, _ := c.Get(middleware.VenueIDKey)
+	orderID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("ID de orden invalido", "BAD_REQUEST"))
 		return
 	}
 
-	c.JSON(http.StatusOK, httputil.SuccessResponse(divisions))
+	divisions, err := h.uc.GetDivisionsByOrder(c.Request.Context(), venueID.(int), orderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse("Error al obtener divisiones", "INTERNAL_ERROR"))
+		return
+	}
+
+	result := make([]gin.H, len(divisions))
+	for i, d := range divisions {
+		result[i] = gin.H{
+			"division_id": d.ID,
+			"subtotal":    d.Amount,
+			"impuestos":   d.Tax,
+			"total":       d.Total,
+			"is_paid":     d.IsPaid,
+		}
+	}
+
+	c.JSON(http.StatusOK, httputil.SuccessResponse(result))
 }

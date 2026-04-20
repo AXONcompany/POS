@@ -9,7 +9,20 @@ var (
 	ErrInvalidOrderItems       = errors.New("invalid order items: must have at least one item")
 	ErrInvalidStatusTransition = errors.New("invalid order status transition")
 	ErrInsufficientStock       = errors.New("insufficient stock for ingredient")
+	ErrDivisionAlreadyPaid     = errors.New("division already paid")
 )
+
+type OrderDivision struct {
+	ID           string    `json:"id" db:"id"`
+	OrderID      int64     `json:"order_id" db:"order_id"`
+	VenueID      int       `json:"venue_id" db:"venue_id"`
+	DivisionType string    `json:"division_type" db:"division_type"`
+	Amount       float64   `json:"amount" db:"amount"`
+	Tax          float64   `json:"tax" db:"tax"`
+	Total        float64   `json:"total" db:"total"`
+	IsPaid       bool      `json:"is_paid" db:"is_paid"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+}
 
 type RecipeLine struct {
 	IngredientID     int64

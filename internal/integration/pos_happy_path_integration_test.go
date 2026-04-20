@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	domainaudit "github.com/AXONcompany/POS/internal/domain/audit"
 	domainorder "github.com/AXONcompany/POS/internal/domain/order"
 	domainowner "github.com/AXONcompany/POS/internal/domain/owner"
 	domainpayment "github.com/AXONcompany/POS/internal/domain/payment"
@@ -47,7 +48,7 @@ func TestPOSHappyPathIntegration(t *testing.T) {
 	authUC := usecaseauth.NewUsecase(userRepo, sessionRepo, "integration-secret", ownerRepo, venueRepo)
 	tableUC := usecasetable.NewUsecase(tableRepo)
 	productUC := usecaseproduct.NewUsecase(productRepo, categoryRepo, recipeRepo)
-	orderUC := usecaseorder.NewUsecase(orderRepo, productRepo)
+	orderUC := usecaseorder.NewUsecase(orderRepo, productRepo, &noopAuditRepo{})
 	paymentUC := usecasepayment.NewUsecase(paymentRepo)
 
 	// 1) Auth + owner + venue
@@ -225,6 +226,8 @@ type posState struct {
 
 	paymentSeq int64
 	payments   map[int64]*domainpayment.Payment
+
+	divisions map[int64][]domainorder.OrderDivision
 }
 
 func newPOSState(initialStock map[int64]float64) *posState {
@@ -247,6 +250,7 @@ func newPOSState(initialStock map[int64]float64) *posState {
 		ingredientStock: stock,
 		orders:          map[int64]*domainorder.Order{},
 		payments:        map[int64]*domainpayment.Payment{},
+		divisions:       map[int64][]domainorder.OrderDivision{},
 	}
 }
 
@@ -1005,3 +1009,79 @@ func clonePayment(p *domainpayment.Payment) *domainpayment.Payment {
 	}
 	return &cp
 }
+
+// --- posOrderRepo métodos faltantes de la interfaz ---
+
+func (r *posOrderRepo) GetOrderItem(_ context.Context, itemID, orderID int64) (*domainorder.OrderItem, error) {
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
+	o, ok := r.state.orders[orderID]
+	if !ok {
+		return nil, errors.New("order not found")
+	}
+	for _, it := range o.Items {
+		if it.ID == itemID {
+			cp := it
+			return &cp, nil
+		}
+	}
+	return nil, errors.New("order item not found")
+}
+
+func (r *posOrderRepo) CancelItemWithInventoryRestore(_ context.Context, itemID, orderID int64, _ int, restorations []domainorder.StockDeduction) error {
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
+	o, ok := r.state.orders[orderID]
+	if !ok {
+		return errors.New("order not found")
+	}
+	for i, it := range o.Items {
+		if it.ID == itemID {
+			if it.CancelledAt != nil {
+				return domainorder.ErrItemAlreadyCancelled
+			}
+			now := r.state.now()
+			o.Items[i].CancelledAt = &now
+			o.TotalAmount -= it.UnitPrice * float64(it.Quantity)
+			for _, res := range restorations {
+				r.state.ingredientStock[res.IngredientID] += res.Quantity
+			}
+			return nil
+		}
+	}
+	return errors.New("order item not found")
+}
+
+func (r *posOrderRepo) CreateDivisions(_ context.Context, divisions []domainorder.OrderDivision) error {
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
+	if len(divisions) == 0 {
+		return nil
+	}
+	orderID := divisions[0].OrderID
+	// Borrar divisiones previas sin pagos
+	existing := r.state.divisions[orderID]
+	for _, d := range existing {
+		if d.IsPaid {
+			return domainorder.ErrDivisionAlreadyPaid
+		}
+	}
+	r.state.divisions[orderID] = make([]domainorder.OrderDivision, len(divisions))
+	copy(r.state.divisions[orderID], divisions)
+	return nil
+}
+
+func (r *posOrderRepo) GetDivisionsByOrderID(_ context.Context, orderID int64, _ int) ([]domainorder.OrderDivision, error) {
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
+	divs := r.state.divisions[orderID]
+	result := make([]domainorder.OrderDivision, len(divs))
+	copy(result, divs)
+	return result, nil
+}
+
+// --- noopAuditRepo: implementación vacía de AuditRepository para tests ---
+
+type noopAuditRepo struct{}
+
+func (n *noopAuditRepo) SaveAudit(_ context.Context, _ *domainaudit.AuditEntry) error { return nil }
