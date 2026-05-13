@@ -7,22 +7,25 @@ package sqlc
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createCategory = `-- name: CreateCategory :one
-insert into categories (
-  venue_id, category_name, is_active
-) values ($1, $2, true)
-returning id, venue_id, created_at, updated_at, deleted_at, category_name
+INSERT INTO categories (venue_id, category_name, color_class, icon)
+VALUES ($1, $2, $3, $4)
+RETURNING id, venue_id, created_at, updated_at, deleted_at, category_name, color_class, icon
 `
 
 type CreateCategoryParams struct {
-	VenueID      int32  `json:"venue_id"`
-	CategoryName string `json:"category_name"`
+	VenueID      int32       `json:"venue_id"`
+	CategoryName string      `json:"category_name"`
+	ColorClass   pgtype.Text `json:"color_class"`
+	Icon         pgtype.Text `json:"icon"`
 }
 
 func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error) {
-	row := q.db.QueryRow(ctx, createCategory, arg.VenueID, arg.CategoryName)
+	row := q.db.QueryRow(ctx, createCategory, arg.VenueID, arg.CategoryName, arg.ColorClass, arg.Icon)
 	var i Category
 	err := row.Scan(
 		&i.ID,
@@ -31,14 +34,14 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.CategoryName,
+		&i.ColorClass,
+		&i.Icon,
 	)
 	return i, err
 }
 
 const deleteCategory = `-- name: DeleteCategory :exec
-update categories
-set deleted_at = now()
-where id = $1 and venue_id = $2 and deleted_at is null
+UPDATE categories SET deleted_at = now() WHERE id = $1 AND venue_id = $2 AND deleted_at IS NULL
 `
 
 type DeleteCategoryParams struct {
@@ -52,9 +55,9 @@ func (q *Queries) DeleteCategory(ctx context.Context, arg DeleteCategoryParams) 
 }
 
 const getCategory = `-- name: GetCategory :one
-select id, venue_id, created_at, updated_at, deleted_at, category_name
-from categories
-where id = $1 and venue_id = $2 and deleted_at is null
+SELECT id, venue_id, created_at, updated_at, deleted_at, category_name, color_class, icon
+FROM categories
+WHERE id = $1 AND venue_id = $2 AND deleted_at IS NULL
 `
 
 type GetCategoryParams struct {
@@ -72,16 +75,18 @@ func (q *Queries) GetCategory(ctx context.Context, arg GetCategoryParams) (Categ
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.CategoryName,
+		&i.ColorClass,
+		&i.Icon,
 	)
 	return i, err
 }
 
 const listCategories = `-- name: ListCategories :many
-select id, venue_id, created_at, updated_at, deleted_at, category_name
-from categories
-where venue_id = $1 and deleted_at is null
-order by id
-limit $2 offset $3
+SELECT id, venue_id, created_at, updated_at, deleted_at, category_name, color_class, icon
+FROM categories
+WHERE venue_id = $1 AND deleted_at IS NULL
+ORDER BY id
+LIMIT $2 OFFSET $3
 `
 
 type ListCategoriesParams struct {
@@ -106,6 +111,8 @@ func (q *Queries) ListCategories(ctx context.Context, arg ListCategoriesParams) 
 			&i.UpdatedAt,
 			&i.DeletedAt,
 			&i.CategoryName,
+			&i.ColorClass,
+			&i.Icon,
 		); err != nil {
 			return nil, err
 		}
@@ -118,22 +125,26 @@ func (q *Queries) ListCategories(ctx context.Context, arg ListCategoriesParams) 
 }
 
 const updateCategory = `-- name: UpdateCategory :one
-update categories
-set
+UPDATE categories
+SET
   category_name = $3,
-  updated_at = now()
-where id = $1 and venue_id = $2 and deleted_at is null
-returning id, venue_id, created_at, updated_at, deleted_at, category_name
+  color_class   = $4,
+  icon          = $5,
+  updated_at    = now()
+WHERE id = $1 AND venue_id = $2 AND deleted_at IS NULL
+RETURNING id, venue_id, created_at, updated_at, deleted_at, category_name, color_class, icon
 `
 
 type UpdateCategoryParams struct {
-	ID           int64  `json:"id"`
-	VenueID      int32  `json:"venue_id"`
-	CategoryName string `json:"category_name"`
+	ID           int64       `json:"id"`
+	VenueID      int32       `json:"venue_id"`
+	CategoryName string      `json:"category_name"`
+	ColorClass   pgtype.Text `json:"color_class"`
+	Icon         pgtype.Text `json:"icon"`
 }
 
 func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error) {
-	row := q.db.QueryRow(ctx, updateCategory, arg.ID, arg.VenueID, arg.CategoryName)
+	row := q.db.QueryRow(ctx, updateCategory, arg.ID, arg.VenueID, arg.CategoryName, arg.ColorClass, arg.Icon)
 	var i Category
 	err := row.Scan(
 		&i.ID,
@@ -142,6 +153,8 @@ func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) 
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.CategoryName,
+		&i.ColorClass,
+		&i.Icon,
 	)
 	return i, err
 }

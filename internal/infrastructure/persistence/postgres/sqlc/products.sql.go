@@ -12,13 +12,10 @@ import (
 )
 
 const createProduct = `-- name: CreateProduct :one
-insert into products (
-  venue_id,
-  product_name,
-  sales_price,
-  is_active
-) values ($1, $2, $3, $4)
-returning id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
+INSERT INTO products (
+  venue_id, product_name, sales_price, is_active, description, image_url, category_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active, description, image_url, category_id
 `
 
 type CreateProductParams struct {
@@ -26,6 +23,9 @@ type CreateProductParams struct {
 	ProductName string         `json:"product_name"`
 	SalesPrice  pgtype.Numeric `json:"sales_price"`
 	IsActive    bool           `json:"is_active"`
+	Description pgtype.Text    `json:"description"`
+	ImageUrl    pgtype.Text    `json:"image_url"`
+	CategoryID  pgtype.Int8    `json:"category_id"`
 }
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
@@ -34,6 +34,9 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		arg.ProductName,
 		arg.SalesPrice,
 		arg.IsActive,
+		arg.Description,
+		arg.ImageUrl,
+		arg.CategoryID,
 	)
 	var i Product
 	err := row.Scan(
@@ -45,14 +48,15 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		&i.ProductName,
 		&i.SalesPrice,
 		&i.IsActive,
+		&i.Description,
+		&i.ImageUrl,
+		&i.CategoryID,
 	)
 	return i, err
 }
 
 const deleteProduct = `-- name: DeleteProduct :exec
-update products
-set deleted_at = now()
-where id = $1 and venue_id = $2 and deleted_at is null
+UPDATE products SET deleted_at = now() WHERE id = $1 AND venue_id = $2 AND deleted_at IS NULL
 `
 
 type DeleteProductParams struct {
@@ -66,9 +70,9 @@ func (q *Queries) DeleteProduct(ctx context.Context, arg DeleteProductParams) er
 }
 
 const getProduct = `-- name: GetProduct :one
-select id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
-from products
-where id = $1 and venue_id = $2 and deleted_at is null
+SELECT id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active, description, image_url, category_id
+FROM products
+WHERE id = $1 AND venue_id = $2 AND deleted_at IS NULL
 `
 
 type GetProductParams struct {
@@ -88,16 +92,19 @@ func (q *Queries) GetProduct(ctx context.Context, arg GetProductParams) (Product
 		&i.ProductName,
 		&i.SalesPrice,
 		&i.IsActive,
+		&i.Description,
+		&i.ImageUrl,
+		&i.CategoryID,
 	)
 	return i, err
 }
 
 const listProducts = `-- name: ListProducts :many
-select id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
-from products
-where venue_id = $1 and deleted_at is null
-order by id
-limit $2 offset $3
+SELECT id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active, description, image_url, category_id
+FROM products
+WHERE venue_id = $1 AND deleted_at IS NULL
+ORDER BY id
+LIMIT $2 OFFSET $3
 `
 
 type ListProductsParams struct {
@@ -124,6 +131,9 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 			&i.ProductName,
 			&i.SalesPrice,
 			&i.IsActive,
+			&i.Description,
+			&i.ImageUrl,
+			&i.CategoryID,
 		); err != nil {
 			return nil, err
 		}
@@ -136,14 +146,17 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 }
 
 const updateProduct = `-- name: UpdateProduct :one
-update products
-set
+UPDATE products
+SET
   product_name = $3,
-  sales_price = $4,
-  is_active = $5,
-  updated_at = now()
-where id = $1 and venue_id = $2 and deleted_at is null
-returning id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active
+  sales_price  = $4,
+  is_active    = $5,
+  description  = $6,
+  image_url    = $7,
+  category_id  = $8,
+  updated_at   = now()
+WHERE id = $1 AND venue_id = $2 AND deleted_at IS NULL
+RETURNING id, venue_id, created_at, updated_at, deleted_at, product_name, sales_price, is_active, description, image_url, category_id
 `
 
 type UpdateProductParams struct {
@@ -152,6 +165,9 @@ type UpdateProductParams struct {
 	ProductName string         `json:"product_name"`
 	SalesPrice  pgtype.Numeric `json:"sales_price"`
 	IsActive    bool           `json:"is_active"`
+	Description pgtype.Text    `json:"description"`
+	ImageUrl    pgtype.Text    `json:"image_url"`
+	CategoryID  pgtype.Int8    `json:"category_id"`
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error) {
@@ -161,6 +177,9 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (P
 		arg.ProductName,
 		arg.SalesPrice,
 		arg.IsActive,
+		arg.Description,
+		arg.ImageUrl,
+		arg.CategoryID,
 	)
 	var i Product
 	err := row.Scan(
@@ -172,6 +191,9 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (P
 		&i.ProductName,
 		&i.SalesPrice,
 		&i.IsActive,
+		&i.Description,
+		&i.ImageUrl,
+		&i.CategoryID,
 	)
 	return i, err
 }

@@ -43,6 +43,11 @@ func (m *MockTableRepo) Delete(ctx context.Context, id int64, venueID int) error
 	return args.Error(0)
 }
 
+func (m *MockTableRepo) FullUpdate(ctx context.Context, id int64, venueID int, t domainTable.Table) error {
+	args := m.Called(ctx, id, venueID, t)
+	return args.Error(0)
+}
+
 // --- Create ---
 
 func TestCreate_InvalidNumber(t *testing.T) {

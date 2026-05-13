@@ -15,19 +15,10 @@ type Category struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
 	CategoryName string             `json:"category_name"`
+	ColorClass   pgtype.Text        `json:"color_class"`
+	Icon         pgtype.Text        `json:"icon"`
 }
 
-type Ingredient struct {
-	ID             int64              `json:"id"`
-	VenueID        int32              `json:"venue_id"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
-	IngredientName string             `json:"ingredient_name"`
-	UnitOfMeasure  string             `json:"unit_of_measure"`
-	IngredientType string             `json:"ingredient_type"`
-	Stock          int64              `json:"stock"`
-}
 
 type Order struct {
 	ID            int64              `json:"id"`
@@ -102,6 +93,9 @@ type Product struct {
 	ProductName string             `json:"product_name"`
 	SalesPrice  pgtype.Numeric     `json:"sales_price"`
 	IsActive    bool               `json:"is_active"`
+	Description pgtype.Text        `json:"description"`
+	ImageUrl    pgtype.Text        `json:"image_url"`
+	CategoryID  pgtype.Int8        `json:"category_id"`
 }
 
 type ProductCategory struct {
@@ -113,15 +107,6 @@ type ProductCategory struct {
 	CategoryID int64              `json:"category_id"`
 }
 
-type Recipe struct {
-	ID               int64              `json:"id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	ProductID        int64              `json:"product_id"`
-	IngredientID     int64              `json:"ingredient_id"`
-	QuantityRequired pgtype.Numeric     `json:"quantity_required"`
-}
 
 type Role struct {
 	ID          int32       `json:"id"`
@@ -159,6 +144,7 @@ type User struct {
 	Name         string             `json:"name"`
 	Email        string             `json:"email"`
 	PasswordHash string             `json:"password_hash"`
+	PinHash      pgtype.Text        `json:"pin_hash"`
 	IsActive     pgtype.Bool        `json:"is_active"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`

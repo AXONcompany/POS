@@ -276,6 +276,50 @@ func (h *Handler) Me(c *gin.Context) {
 	c.JSON(http.StatusOK, httputil.SuccessResponse(userData))
 }
 
+// PinLoginRequest es el cuerpo del endpoint de login por PIN para meseros.
+type PinLoginRequest struct {
+	VenueID int    `json:"venue_id" binding:"required"`
+	PIN     string `json:"pin" binding:"required"`
+}
+
+// PinLogin autentica un mesero mediante su PIN de 4 dígitos.
+func (h *Handler) PinLogin(c *gin.Context) {
+	var req PinLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("Datos invalidos", "BAD_REQUEST"))
+		return
+	}
+
+	ipAddress := c.ClientIP()
+	deviceInfo := c.GetHeader("User-Agent")
+
+	tokens, err := h.uc.LoginByPIN(c.Request.Context(), req.VenueID, req.PIN, deviceInfo, ipAddress)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, httputil.ErrorResponse("PIN incorrecto o usuario inactivo", "UNAUTHORIZED"))
+		return
+	}
+
+	u := tokens.User
+	c.SetCookie("refresh_token", tokens.RefreshToken, int(7*24*time.Hour.Seconds()), "/", "", true, true)
+
+	rol := roleNames[u.RoleID]
+	if rol == "" {
+		rol = "DESCONOCIDO"
+	}
+
+	c.JSON(http.StatusOK, httputil.SuccessResponse(gin.H{
+		"token": tokens.AccessToken,
+		"usuario": gin.H{
+			"id":     u.ID,
+			"nombre": u.Name,
+			"email":  u.Email,
+			"rol":    rol,
+			"activo": u.IsActive,
+		},
+		"expires_in": 900,
+	}))
+}
+
 func (h *Handler) Logout(c *gin.Context) {
 	refreshToken, err := c.Cookie("refresh_token")
 	if err != nil || refreshToken == "" {

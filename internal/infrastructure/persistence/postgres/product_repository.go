@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	domainOrder "github.com/AXONcompany/POS/internal/domain/order"
 	"github.com/AXONcompany/POS/internal/domain/product"
 	"github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres/sqlc"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -24,7 +23,7 @@ func NewProductRepository(db *DB) *ProductRepository {
 
 func toDomainProduct(p sqlc.Product) product.Product {
 	val, _ := p.SalesPrice.Float64Value()
-	return product.Product{
+	dp := product.Product{
 		ID:         p.ID,
 		VenueID:    int(p.VenueID),
 		Name:       p.ProductName,
@@ -34,6 +33,17 @@ func toDomainProduct(p sqlc.Product) product.Product {
 		UpdatedAt:  ptrTime(p.UpdatedAt),
 		DeletedAt:  ptrTime(p.DeletedAt),
 	}
+	if p.Description.Valid {
+		dp.Description = p.Description.String
+	}
+	if p.ImageUrl.Valid {
+		dp.ImageURL = p.ImageUrl.String
+	}
+	if p.CategoryID.Valid {
+		v := p.CategoryID.Int64
+		dp.CategoryID = &v
+	}
+	return dp
 }
 
 func floatToNumeric(f float64) pgtype.Numeric {
@@ -42,12 +52,29 @@ func floatToNumeric(f float64) pgtype.Numeric {
 	return n
 }
 
+func toOptionalText(s string) pgtype.Text {
+	if s == "" {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{String: s, Valid: true}
+}
+
+func toOptionalInt8(p *int64) pgtype.Int8 {
+	if p == nil {
+		return pgtype.Int8{Valid: false}
+	}
+	return pgtype.Int8{Int64: *p, Valid: true}
+}
+
 func (r *ProductRepository) CreateProduct(ctx context.Context, p product.Product) (*product.Product, error) {
 	row, err := r.q.CreateProduct(ctx, sqlc.CreateProductParams{
 		VenueID:     int32(p.VenueID),
 		ProductName: p.Name,
 		SalesPrice:  floatToNumeric(p.SalesPrice),
 		IsActive:    p.IsActive,
+		Description: toOptionalText(p.Description),
+		ImageUrl:    toOptionalText(p.ImageURL),
+		CategoryID:  toOptionalInt8(p.CategoryID),
 	})
 	if err != nil {
 		return nil, err
@@ -93,6 +120,9 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p product.Product
 		ProductName: p.Name,
 		SalesPrice:  floatToNumeric(p.SalesPrice),
 		IsActive:    p.IsActive,
+		Description: toOptionalText(p.Description),
+		ImageUrl:    toOptionalText(p.ImageURL),
+		CategoryID:  toOptionalInt8(p.CategoryID),
 	})
 	if err != nil {
 		return nil, err
@@ -118,58 +148,4 @@ func (r *ProductRepository) GetProductPrice(ctx context.Context, productID int64
 	}
 	val, _ := row.SalesPrice.Float64Value()
 	return val.Float64, nil
-}
-
-func (r *ProductRepository) GetRecipeLines(ctx context.Context, productID int64) ([]domainOrder.RecipeLine, error) {
-	rows, err := r.q.GetRecipeByProductID(ctx, productID)
-	if err != nil {
-		return nil, fmt.Errorf("get recipe lines: %w", err)
-	}
-	lines := make([]domainOrder.RecipeLine, len(rows))
-	for i, row := range rows {
-		qty, _ := row.QuantityRequired.Float64Value()
-		lines[i] = domainOrder.RecipeLine{
-			IngredientID:     row.IngredientID,
-			QuantityRequired: qty.Float64,
-		}
-	}
-	return lines, nil
-}
-
-func (r *ProductRepository) CreateProductWithRecipe(ctx context.Context, p product.Product, items []product.RecipeItem) (*product.Product, error) {
-	tx, err := r.db.Pool.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
-
-	qtx := r.q.WithTx(tx)
-
-	prodRow, err := qtx.CreateProduct(ctx, sqlc.CreateProductParams{
-		VenueID:     int32(p.VenueID),
-		ProductName: p.Name,
-		SalesPrice:  floatToNumeric(p.SalesPrice),
-		IsActive:    p.IsActive,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, item := range items {
-		_, err := qtx.AddRecipeItem(ctx, sqlc.AddRecipeItemParams{
-			ProductID:        prodRow.ID,
-			IngredientID:     item.IngredientID,
-			QuantityRequired: floatToNumeric(item.QuantityRequired),
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
-	}
-
-	res := toDomainProduct(prodRow)
-	return &res, nil
 }

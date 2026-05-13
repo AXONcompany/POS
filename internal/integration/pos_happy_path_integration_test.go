@@ -3,7 +3,6 @@ package integration_test
 import (
 	"context"
 	"errors"
-	"math"
 	"sync"
 	"testing"
 	"time"
@@ -30,9 +29,7 @@ func TestPOSHappyPathIntegration(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	state := newPOSState(map[int64]float64{
-		9001: 1000, // azucar base para receta
-	})
+	state := newPOSState()
 
 	userRepo := &authUserRepo{state: state}
 	sessionRepo := &authSessionRepo{state: state}
@@ -41,13 +38,12 @@ func TestPOSHappyPathIntegration(t *testing.T) {
 	tableRepo := &posTableRepo{state: state}
 	productRepo := &posProductRepo{state: state}
 	categoryRepo := &posCategoryRepo{state: state}
-	recipeRepo := &posRecipeRepo{state: state}
 	orderRepo := &posOrderRepo{state: state}
 	paymentRepo := &posPaymentRepo{state: state}
 
 	authUC := usecaseauth.NewUsecase(userRepo, sessionRepo, "integration-secret", ownerRepo, venueRepo)
 	tableUC := usecasetable.NewUsecase(tableRepo)
-	productUC := usecaseproduct.NewUsecase(productRepo, categoryRepo, recipeRepo)
+	productUC := usecaseproduct.NewUsecase(productRepo, categoryRepo)
 	orderUC := usecaseorder.NewUsecase(orderRepo, productRepo, &noopAuditRepo{})
 	paymentUC := usecasepayment.NewUsecase(paymentRepo)
 
@@ -110,18 +106,12 @@ func TestPOSHappyPathIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.NotZero(t, createdCategory.ID)
 
-	menuItem, err := productUC.CreateMenuItem(
-		ctx,
-		ownerTokens.User.VenueID,
-		"Limonada",
-		12.5,
-		[]domainproduct.RecipeItem{
-			{
-				IngredientID:     9001,
-				QuantityRequired: 50,
-			},
-		},
-	)
+	menuItem, err := productUC.CreateProduct(ctx, domainproduct.Product{
+		VenueID:    ownerTokens.User.VenueID,
+		Name:       "Limonada",
+		SalesPrice: 12.5,
+		IsActive:   true,
+	})
 	require.NoError(t, err)
 	require.NotZero(t, menuItem.ID)
 
@@ -145,9 +135,6 @@ func TestPOSHappyPathIntegration(t *testing.T) {
 	require.Len(t, updatedOrder.Items, 1)
 	require.Equal(t, 2, updatedOrder.Items[0].Quantity)
 	require.InDelta(t, 25.0, updatedOrder.TotalAmount, 0.0001)
-
-	remainingStock := state.getIngredientStock(9001)
-	require.InDelta(t, 900.0, remainingStock, 0.0001)
 
 	err = orderUC.UpdateOrderStatus(ctx, ownerTokens.User.VenueID, updatedOrder.ID, 2) // enviada
 	require.NoError(t, err)
@@ -215,10 +202,6 @@ type posState struct {
 	categories  map[int64]*domainproduct.Category
 	productSeq  int64
 	products    map[int64]*domainproduct.Product
-	recipeSeq   int64
-	recipes     map[int64][]domainproduct.RecipeItem
-
-	ingredientStock map[int64]float64
 
 	orderSeq     int64
 	orderItemSeq int64
@@ -230,38 +213,25 @@ type posState struct {
 	divisions map[int64][]domainorder.OrderDivision
 }
 
-func newPOSState(initialStock map[int64]float64) *posState {
-	stock := make(map[int64]float64, len(initialStock))
-	for id, value := range initialStock {
-		stock[id] = value
-	}
-
+func newPOSState() *posState {
 	return &posState{
-		users:           map[int]*domainuser.User{},
-		userByEmail:     map[string]int{},
-		sessions:        map[string]*domainsession.Session{},
-		owners:          map[int]*domainowner.Owner{},
-		ownerByEmail:    map[string]int{},
-		venues:          map[int]*domainvenue.Venue{},
-		tables:          map[int64]*domaintable.Table{},
-		categories:      map[int64]*domainproduct.Category{},
-		products:        map[int64]*domainproduct.Product{},
-		recipes:         map[int64][]domainproduct.RecipeItem{},
-		ingredientStock: stock,
-		orders:          map[int64]*domainorder.Order{},
-		payments:        map[int64]*domainpayment.Payment{},
-		divisions:       map[int64][]domainorder.OrderDivision{},
+		users:       map[int]*domainuser.User{},
+		userByEmail: map[string]int{},
+		sessions:    map[string]*domainsession.Session{},
+		owners:      map[int]*domainowner.Owner{},
+		ownerByEmail: map[string]int{},
+		venues:     map[int]*domainvenue.Venue{},
+		tables:     map[int64]*domaintable.Table{},
+		categories: map[int64]*domainproduct.Category{},
+		products:   map[int64]*domainproduct.Product{},
+		orders:     map[int64]*domainorder.Order{},
+		payments:   map[int64]*domainpayment.Payment{},
+		divisions:  map[int64][]domainorder.OrderDivision{},
 	}
 }
 
 func (s *posState) now() time.Time {
 	return time.Now().UTC()
-}
-
-func (s *posState) getIngredientStock(ingredientID int64) float64 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.ingredientStock[ingredientID]
 }
 
 type authUserRepo struct{ state *posState }
@@ -322,6 +292,14 @@ func (r *authUserRepo) UpdateLastAccess(_ context.Context, id int) error {
 	now := r.state.now()
 	u.LastAccess = &now
 	u.UpdatedAt = now
+	return nil
+}
+
+func (r *authUserRepo) GetByPINAndVenue(_ context.Context, venueID int, pinHash string) (*domainuser.User, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *authUserRepo) SetPIN(_ context.Context, userID int, pinHash string) error {
 	return nil
 }
 
@@ -513,6 +491,19 @@ func (r *posTableRepo) Delete(_ context.Context, id int64, venueID int) error {
 	return nil
 }
 
+func (r *posTableRepo) FullUpdate(_ context.Context, id int64, venueID int, t domaintable.Table) error {
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
+
+	existing, ok := r.state.tables[id]
+	if !ok || existing.VenueID != venueID || existing.DeletedAt != nil {
+		return errors.New("table not found")
+	}
+	t.ID = id
+	r.state.tables[id] = &t
+	return nil
+}
+
 type posCategoryRepo struct{ state *posState }
 
 func (r *posCategoryRepo) CreateCategory(_ context.Context, c domainproduct.Category) (*domainproduct.Category, error) {
@@ -586,16 +577,12 @@ func (r *posProductRepo) CreateProduct(_ context.Context, p domainproduct.Produc
 	r.state.mu.Lock()
 	defer r.state.mu.Unlock()
 
-	return r.createProductLocked(p), nil
-}
-
-func (r *posProductRepo) createProductLocked(p domainproduct.Product) *domainproduct.Product {
 	r.state.productSeq++
 	created := p
 	created.ID = r.state.productSeq
 	created.CreatedAt = r.state.now()
 	r.state.products[created.ID] = cloneProduct(&created)
-	return cloneProduct(&created)
+	return cloneProduct(&created), nil
 }
 
 func (r *posProductRepo) GetByID(_ context.Context, id int64, venueID int) (*domainproduct.Product, error) {
@@ -651,24 +638,6 @@ func (r *posProductRepo) DeleteProduct(_ context.Context, id int64, venueID int)
 	return nil
 }
 
-func (r *posProductRepo) CreateProductWithRecipe(_ context.Context, p domainproduct.Product, items []domainproduct.RecipeItem) (*domainproduct.Product, error) {
-	r.state.mu.Lock()
-	defer r.state.mu.Unlock()
-
-	created := r.createProductLocked(p)
-	for _, item := range items {
-		r.state.recipeSeq++
-		recipe := item
-		recipe.ID = r.state.recipeSeq
-		recipe.ProductID = created.ID
-		r.state.recipes[created.ID] = append(r.state.recipes[created.ID], recipe)
-		if _, exists := r.state.ingredientStock[recipe.IngredientID]; !exists {
-			r.state.ingredientStock[recipe.IngredientID] = 0
-		}
-	}
-	return cloneProduct(created), nil
-}
-
 func (r *posProductRepo) GetProductPrice(_ context.Context, productID int64, venueID int) (float64, error) {
 	r.state.mu.Lock()
 	defer r.state.mu.Unlock()
@@ -678,44 +647,6 @@ func (r *posProductRepo) GetProductPrice(_ context.Context, productID int64, ven
 		return 0, errors.New("product not found")
 	}
 	return p.SalesPrice, nil
-}
-
-func (r *posProductRepo) GetRecipeLines(_ context.Context, productID int64) ([]domainorder.RecipeLine, error) {
-	r.state.mu.Lock()
-	defer r.state.mu.Unlock()
-
-	items := r.state.recipes[productID]
-	lines := make([]domainorder.RecipeLine, len(items))
-	for i, item := range items {
-		lines[i] = domainorder.RecipeLine{
-			IngredientID:     item.IngredientID,
-			QuantityRequired: item.QuantityRequired,
-		}
-	}
-	return lines, nil
-}
-
-type posRecipeRepo struct{ state *posState }
-
-func (r *posRecipeRepo) AddRecipeItem(_ context.Context, item domainproduct.RecipeItem) (*domainproduct.RecipeItem, error) {
-	r.state.mu.Lock()
-	defer r.state.mu.Unlock()
-
-	r.state.recipeSeq++
-	created := item
-	created.ID = r.state.recipeSeq
-	r.state.recipes[item.ProductID] = append(r.state.recipes[item.ProductID], created)
-	return &created, nil
-}
-
-func (r *posRecipeRepo) GetByProductID(_ context.Context, productID int64) ([]domainproduct.RecipeItem, error) {
-	r.state.mu.Lock()
-	defer r.state.mu.Unlock()
-
-	items := r.state.recipes[productID]
-	out := make([]domainproduct.RecipeItem, len(items))
-	copy(out, items)
-	return out, nil
 }
 
 type posOrderRepo struct{ state *posState }
@@ -800,26 +731,13 @@ func (r *posOrderRepo) ListByTable(_ context.Context, tableID int64, venueID int
 	return out, nil
 }
 
-func (r *posOrderRepo) AddItemsWithInventory(_ context.Context, orderID int64, venueID int, items []domainorder.OrderItem, deductions []domainorder.StockDeduction) error {
+func (r *posOrderRepo) AddItemsWithInventory(_ context.Context, orderID int64, venueID int, items []domainorder.OrderItem, _ []domainorder.StockDeduction) error {
 	r.state.mu.Lock()
 	defer r.state.mu.Unlock()
 
 	o, ok := r.state.orders[orderID]
 	if !ok || o.VenueID != venueID {
 		return errors.New("order not found")
-	}
-
-	for _, d := range deductions {
-		available := r.state.ingredientStock[d.IngredientID]
-		if available+1e-9 < d.Quantity {
-			return domainorder.ErrInsufficientStock
-		}
-	}
-	for _, d := range deductions {
-		r.state.ingredientStock[d.IngredientID] -= d.Quantity
-		if math.Abs(r.state.ingredientStock[d.IngredientID]) < 1e-9 {
-			r.state.ingredientStock[d.IngredientID] = 0
-		}
 	}
 
 	now := r.state.now()
@@ -836,6 +754,70 @@ func (r *posOrderRepo) AddItemsWithInventory(_ context.Context, orderID int64, v
 	}
 	o.UpdatedAt = now
 	return nil
+}
+
+func (r *posOrderRepo) GetOrderItem(_ context.Context, itemID, orderID int64) (*domainorder.OrderItem, error) {
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
+	o, ok := r.state.orders[orderID]
+	if !ok {
+		return nil, errors.New("order not found")
+	}
+	for _, it := range o.Items {
+		if it.ID == itemID {
+			cp := it
+			return &cp, nil
+		}
+	}
+	return nil, errors.New("order item not found")
+}
+
+func (r *posOrderRepo) CancelItemWithInventoryRestore(_ context.Context, itemID, orderID int64, _ int, _ []domainorder.StockDeduction) error {
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
+	o, ok := r.state.orders[orderID]
+	if !ok {
+		return errors.New("order not found")
+	}
+	for i, it := range o.Items {
+		if it.ID == itemID {
+			if it.CancelledAt != nil {
+				return domainorder.ErrItemAlreadyCancelled
+			}
+			now := r.state.now()
+			o.Items[i].CancelledAt = &now
+			o.TotalAmount -= it.UnitPrice * float64(it.Quantity)
+			return nil
+		}
+	}
+	return errors.New("order item not found")
+}
+
+func (r *posOrderRepo) CreateDivisions(_ context.Context, divisions []domainorder.OrderDivision) error {
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
+	if len(divisions) == 0 {
+		return nil
+	}
+	orderID := divisions[0].OrderID
+	existing := r.state.divisions[orderID]
+	for _, d := range existing {
+		if d.IsPaid {
+			return domainorder.ErrDivisionAlreadyPaid
+		}
+	}
+	r.state.divisions[orderID] = make([]domainorder.OrderDivision, len(divisions))
+	copy(r.state.divisions[orderID], divisions)
+	return nil
+}
+
+func (r *posOrderRepo) GetDivisionsByOrderID(_ context.Context, orderID int64, _ int) ([]domainorder.OrderDivision, error) {
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
+	divs := r.state.divisions[orderID]
+	result := make([]domainorder.OrderDivision, len(divs))
+	copy(result, divs)
+	return result, nil
 }
 
 type posPaymentRepo struct{ state *posState }
@@ -1008,76 +990,6 @@ func clonePayment(p *domainpayment.Payment) *domainpayment.Payment {
 		cp.POSTerminalID = &posTerminalID
 	}
 	return &cp
-}
-
-// --- posOrderRepo métodos faltantes de la interfaz ---
-
-func (r *posOrderRepo) GetOrderItem(_ context.Context, itemID, orderID int64) (*domainorder.OrderItem, error) {
-	r.state.mu.Lock()
-	defer r.state.mu.Unlock()
-	o, ok := r.state.orders[orderID]
-	if !ok {
-		return nil, errors.New("order not found")
-	}
-	for _, it := range o.Items {
-		if it.ID == itemID {
-			cp := it
-			return &cp, nil
-		}
-	}
-	return nil, errors.New("order item not found")
-}
-
-func (r *posOrderRepo) CancelItemWithInventoryRestore(_ context.Context, itemID, orderID int64, _ int, restorations []domainorder.StockDeduction) error {
-	r.state.mu.Lock()
-	defer r.state.mu.Unlock()
-	o, ok := r.state.orders[orderID]
-	if !ok {
-		return errors.New("order not found")
-	}
-	for i, it := range o.Items {
-		if it.ID == itemID {
-			if it.CancelledAt != nil {
-				return domainorder.ErrItemAlreadyCancelled
-			}
-			now := r.state.now()
-			o.Items[i].CancelledAt = &now
-			o.TotalAmount -= it.UnitPrice * float64(it.Quantity)
-			for _, res := range restorations {
-				r.state.ingredientStock[res.IngredientID] += res.Quantity
-			}
-			return nil
-		}
-	}
-	return errors.New("order item not found")
-}
-
-func (r *posOrderRepo) CreateDivisions(_ context.Context, divisions []domainorder.OrderDivision) error {
-	r.state.mu.Lock()
-	defer r.state.mu.Unlock()
-	if len(divisions) == 0 {
-		return nil
-	}
-	orderID := divisions[0].OrderID
-	// Borrar divisiones previas sin pagos
-	existing := r.state.divisions[orderID]
-	for _, d := range existing {
-		if d.IsPaid {
-			return domainorder.ErrDivisionAlreadyPaid
-		}
-	}
-	r.state.divisions[orderID] = make([]domainorder.OrderDivision, len(divisions))
-	copy(r.state.divisions[orderID], divisions)
-	return nil
-}
-
-func (r *posOrderRepo) GetDivisionsByOrderID(_ context.Context, orderID int64, _ int) ([]domainorder.OrderDivision, error) {
-	r.state.mu.Lock()
-	defer r.state.mu.Unlock()
-	divs := r.state.divisions[orderID]
-	result := make([]domainorder.OrderDivision, len(divs))
-	copy(result, divs)
-	return result, nil
 }
 
 // --- noopAuditRepo: implementación vacía de AuditRepository para tests ---

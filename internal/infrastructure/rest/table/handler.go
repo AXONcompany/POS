@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	domainTable "github.com/AXONcompany/POS/internal/domain/table"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/httputil"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/middleware"
 	usecase "github.com/AXONcompany/POS/internal/usecase/table"
@@ -27,22 +28,51 @@ func tblVenueID(c *gin.Context) int {
 // Create maneja POST /mesas
 func (h *Handler) Create(c *gin.Context) {
 	var req CreateRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("Datos invalidos: "+err.Error(), "BAD_REQUEST"))
 		return
 	}
 
 	venueID := tblVenueID(c)
-	domainTable := ToDomain(req)
-	domainTable.VenueID = venueID
+	tbl := ToDomain(req)
+	tbl.VenueID = venueID
 
-	if err := h.uc.Create(c.Request.Context(), domainTable); err != nil {
+	if err := h.uc.Create(c.Request.Context(), tbl); err != nil {
 		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse(err.Error(), "INTERNAL_ERROR"))
 		return
 	}
 
-	c.JSON(http.StatusCreated, httputil.SuccessResponse(ToResponse(domainTable)))
+	c.JSON(http.StatusCreated, httputil.SuccessResponse(ToResponse(tbl)))
+}
+
+// FullUpdate maneja PUT /mesas/:id (reemplaza todos los campos mutables de una mesa).
+func (h *Handler) FullUpdate(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("ID invalido", "BAD_REQUEST"))
+		return
+	}
+
+	var req FullUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, httputil.ErrorResponse("Datos invalidos: "+err.Error(), "BAD_REQUEST"))
+		return
+	}
+
+	venueID := tblVenueID(c)
+	tbl := ToFullUpdateDomain(req)
+
+	if err := h.uc.FullUpdate(c.Request.Context(), id, venueID, tbl); err != nil {
+		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse(err.Error(), "INTERNAL_ERROR"))
+		return
+	}
+
+	updated, err := h.uc.FindByID(c.Request.Context(), id, venueID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse(err.Error(), "INTERNAL_ERROR"))
+		return
+	}
+	c.JSON(http.StatusOK, httputil.SuccessResponse(ToResponse(updated)))
 }
 
 // GetAll maneja GET /mesas
@@ -90,7 +120,7 @@ func (h *Handler) UpdateEstado(c *gin.Context) {
 	}
 
 	venueID := tblVenueID(c)
-	updates := ToUpdateDomain(UpdateRequest{Status: &req.Estado})
+	updates := &domainTable.TableUpdates{Status: &req.Estado}
 
 	if err := h.uc.Update(c.Request.Context(), id, venueID, updates); err != nil {
 		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse(err.Error(), "INTERNAL_ERROR"))
