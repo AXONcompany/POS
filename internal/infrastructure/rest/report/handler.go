@@ -52,18 +52,6 @@ func (h *Handler) GetSalesReport(c *gin.Context) {
 	c.JSON(http.StatusOK, httputil.SuccessResponse(report))
 }
 
-// GetInventoryReport maneja GET /reportes/inventario
-func (h *Handler) GetInventoryReport(c *gin.Context) {
-	venueID, _ := c.Get(middleware.VenueIDKey)
-	report, err := h.uc.GetInventoryReport(c.Request.Context(), venueID.(int))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse("Error al generar reporte", "INTERNAL_ERROR"))
-		return
-	}
-
-	c.JSON(http.StatusOK, httputil.SuccessResponse(report))
-}
-
 // GetTipsReport maneja GET /reportes/propinas
 func (h *Handler) GetTipsReport(c *gin.Context) {
 	venueID, _ := c.Get(middleware.VenueIDKey)

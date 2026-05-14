@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*domainUser.User, error)
 	GetByID(ctx context.Context, id int) (*domainUser.User, error)
+	GetByPINAndVenue(ctx context.Context, venueID int, pinHash string) (*domainUser.User, error)
 	Create(ctx context.Context, u *domainUser.User) (*domainUser.User, error)
 	UpdateLastAccess(ctx context.Context, id int) error
 }
@@ -348,4 +350,52 @@ func (uc *Usecase) GetUserByID(ctx context.Context, id int) (*domainUser.User, e
 // RevokeSession revoca un refresh token.
 func (uc *Usecase) RevokeSession(ctx context.Context, refreshToken string) error {
 	return uc.sessionRepo.Revoke(ctx, refreshToken)
+}
+
+// LoginByPIN autentica un mesero mediante su PIN de 4 dígitos dentro de una sede.
+// El PIN se hashea con SHA256 antes de compararlo con el almacenado en la base de datos.
+func (uc *Usecase) LoginByPIN(ctx context.Context, venueID int, pin, deviceInfo, ipAddress string) (*TokenResponse, error) {
+	h := sha256.Sum256([]byte(pin))
+	pinHash := hex.EncodeToString(h[:])
+
+	u, err := uc.userRepo.GetByPINAndVenue(ctx, venueID, pinHash)
+	if err != nil {
+		return nil, errors.New("PIN incorrecto")
+	}
+	if !u.IsActive {
+		return nil, errors.New("usuario inactivo")
+	}
+
+	accessToken, err := uc.generateToken(u, 15*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	refreshToken, err := uc.generateToken(u, 7*24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	s := &session.Session{
+		UserID:       u.ID,
+		RefreshToken: refreshToken,
+		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
+		DeviceInfo:   deviceInfo,
+		IPAddress:    ipAddress,
+	}
+	if _, err = uc.sessionRepo.Create(ctx, s); err != nil {
+		return nil, err
+	}
+	_ = uc.userRepo.UpdateLastAccess(ctx, u.ID)
+
+	return &TokenResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User:         u,
+	}, nil
+}
+
+// PinHash devuelve el hash SHA256 de un PIN en formato hexadecimal (útil para el registro).
+func PinHash(pin string) string {
+	h := sha256.Sum256([]byte(pin))
+	return hex.EncodeToString(h[:])
 }

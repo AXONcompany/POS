@@ -2,10 +2,13 @@ package postgres
 
 import (
 	"context"
+	"errors"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AXONcompany/POS/internal/domain/user"
 	"github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres/sqlc"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type UserRepository struct {
@@ -112,4 +115,68 @@ func (r *UserRepository) ListByVenue(ctx context.Context, venueID int) ([]*user.
 
 func (r *UserRepository) UpdateLastAccess(ctx context.Context, id int) error {
 	return r.q.UpdateUserLastAccess(ctx, int32(id))
+}
+
+// GetByPINAndVenue looks up an active user by 4-digit PIN hash within a venue.
+func (r *UserRepository) GetByPINAndVenue(ctx context.Context, venueID int, pinHash string) (*user.User, error) {
+	query := `
+		SELECT id, venue_id, role_id, name, email, password_hash, is_active, created_at, updated_at, phone, last_access
+		FROM users
+		WHERE venue_id = $1 AND pin_hash = $2 AND is_active IS TRUE
+		LIMIT 1`
+
+	row := r.db.Pool.QueryRow(ctx, query, venueID, pinHash)
+
+	var p struct {
+		ID           int32
+		VenueID      int32
+		RoleID       int32
+		Name         string
+		Email        string
+		PasswordHash string
+		IsActive     pgtype.Bool
+		CreatedAt    pgtype.Timestamptz
+		UpdatedAt    pgtype.Timestamptz
+		Phone        pgtype.Text
+		LastAccess   pgtype.Timestamptz
+	}
+	err := row.Scan(
+		&p.ID, &p.VenueID, &p.RoleID, &p.Name, &p.Email, &p.PasswordHash,
+		&p.IsActive, &p.CreatedAt, &p.UpdatedAt, &p.Phone, &p.LastAccess,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("invalid PIN")
+		}
+		return nil, err
+	}
+
+	u := &user.User{
+		ID:           int(p.ID),
+		VenueID:      int(p.VenueID),
+		RoleID:       int(p.RoleID),
+		Name:         p.Name,
+		Email:        p.Email,
+		PasswordHash: p.PasswordHash,
+		IsActive:     p.IsActive.Bool,
+		CreatedAt:    p.CreatedAt.Time,
+		UpdatedAt:    p.UpdatedAt.Time,
+	}
+	if p.Phone.Valid {
+		u.Phone = &p.Phone.String
+	}
+	if p.LastAccess.Valid {
+		t := p.LastAccess.Time
+		u.LastAccess = &t
+	}
+	return u, nil
+}
+
+// SetPIN stores a SHA256 PIN hash for a user (used during waiter registration).
+func (r *UserRepository) SetPIN(ctx context.Context, userID int, pinHash string) error {
+	_, err := r.db.Pool.Exec(ctx,
+		`UPDATE users SET pin_hash = $1 WHERE id = $2`,
+		pinHash, userID,
+	)
+	return err
 }

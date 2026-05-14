@@ -51,6 +51,14 @@ func (m *mockUserRepository) UpdateLastAccess(ctx context.Context, id int) error
 	return nil
 }
 
+func (m *mockUserRepository) GetByPINAndVenue(ctx context.Context, venueID int, pinHash string) (*domainUser.User, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockUserRepository) SetPIN(ctx context.Context, userID int, pinHash string) error {
+	return nil
+}
+
 type mockSessionRepository struct {
 	createFunc     func(ctx context.Context, s *domainSession.Session) (*domainSession.Session, error)
 	getByTokenFunc func(ctx context.Context, refreshToken string) (*domainSession.Session, error)

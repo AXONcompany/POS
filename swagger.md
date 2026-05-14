@@ -9,16 +9,24 @@ servers:
     description: Respiralo ahí
 
 tags:
+  - name: Autenticación
+    description: Login, registro y sesiones
+  - name: Propietario
+    description: Gestión del perfil del propietario
+  - name: Sedes
+    description: Gestión de sedes (venues)
+  - name: Terminales POS
+    description: Gestión de terminales POS por sede
   - name: Mesas
     description: Gestion de mesas y salones
-  - name: Autenticación
-    description: Gestión de usuarios y autenticación
   - name: Ordenes
     description: Gestion de ordenes y pedidos
-  - name: Menu
-    description: Gestion del menu
+  - name: División de cuenta
+    description: División y consulta de divisiones de una orden
   - name: Pagos
     description: Procesamiento de pagos
+  - name: Menu
+    description: Gestion del menu
   - name: Inventario
     description: Control de inventario
   - name: Reportes
@@ -81,6 +89,74 @@ paths:
                     example: true
                   data:
                     $ref: '#/components/schemas/Mesa'
+
+  /mesas/{id}:
+    get:
+      tags:
+        - Mesas
+      summary: Obtener mesa
+      description: Obtiene los detalles de una mesa por ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detalles de la mesa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Mesa'
+        '404':
+          description: Mesa no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Mesas
+      summary: Eliminar mesa
+      description: Elimina una mesa (solo CAJERO o PROPIETARIO)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Mesa eliminada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Mesa eliminada exitosamente"
+        '404':
+          description: Mesa no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /mesas/{id}/estado:
     patch:
@@ -154,7 +230,7 @@ paths:
                   minLength: 8
                 rol:
                   type: string
-                  enum: [ADMIN, MESERO, CAJA]
+                  enum: [CAJERO, MESERO]
                   example: "MESERO"
                 telefono:
                   type: string
@@ -206,6 +282,72 @@ paths:
                   error:
                     type: string
                     example: "El email ya esta registrado en el sistema"
+
+  /auth/register-owner:
+    post:
+      tags:
+        - Autenticación
+      summary: Registrar propietario
+      description: Crea una cuenta de propietario con su primera sede. Endpoint público.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nombre
+                - email
+                - password
+                - nombre_sede
+              properties:
+                nombre:
+                  type: string
+                  example: "Carlos Dueño"
+                email:
+                  type: string
+                  format: email
+                  example: "carlos@restaurante.com"
+                password:
+                  type: string
+                  format: password
+                  example: "secreto123"
+                nombre_sede:
+                  type: string
+                  example: "Sede Centro"
+                direccion:
+                  type: string
+                  example: "Calle 1 # 2-3"
+                telefono:
+                  type: string
+                  example: "3001234567"
+      responses:
+        '201':
+          description: Propietario y sede creados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      refresh_token:
+                        type: string
+                      user:
+                        $ref: '#/components/schemas/Usuario'
+        '409':
+          description: El email ya está registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /auth/login:
     post:
@@ -345,7 +487,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [ADMIN, MESERO, CAJA]
+            enum: [PROPIETARIO, CAJERO, MESERO]
           description: Filtrar por rol
         - name: activo
           in: query
@@ -511,7 +653,82 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /usuarios/mesero:
+    post:
+      tags:
+        - Autenticación
+      summary: Registrar mesero
+      description: El PROPIETARIO o CAJERO crea un nuevo mesero. Retorna las credenciales temporales generadas.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nombre
+                - email
+              properties:
+                nombre:
+                  type: string
+                  example: "Ana Mesero"
+                email:
+                  type: string
+                  format: email
+                  example: "ana@restaurante.com"
+      responses:
+        '201':
+          description: Mesero creado con contraseña temporal
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      usuario:
+                        $ref: '#/components/schemas/Usuario'
+                      password_temporal:
+                        type: string
+                        example: "xK9mP2qR"
+
   /ordenes:
+    get:
+      tags:
+        - Ordenes
+      summary: Listar ordenes por mesa
+      description: Lista todas las ordenes de una mesa
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: table_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: ID de la mesa
+      responses:
+        '200':
+          description: Lista de ordenes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Orden'
+
     post:
       tags:
         - Ordenes
@@ -657,6 +874,89 @@ paths:
                     type: string
                     example: "Item cancelado exitosamente"
 
+  /ordenes/{id}/status:
+    patch:
+      tags:
+        - Ordenes
+      summary: Actualizar estado de orden
+      description: Cambia el estado de una orden. Transiciones válidas — PENDING(1)→SENT(2)→PREPARING(3)→READY(4)→PAID(5) o CANCELLED(6)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status_id
+              properties:
+                status_id:
+                  type: integer
+                  enum: [1, 2, 3, 4, 5, 6]
+                  example: 3
+      responses:
+        '200':
+          description: Estado actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Estado de orden actualizado"
+        '422':
+          description: Transición de estado inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ordenes/{id}/checkout:
+    post:
+      tags:
+        - Pagos
+      summary: Checkout de orden
+      description: Marca la orden como PAID (estado 5). Requiere que la orden esté en estado READY(4). Solo CAJERO o PROPIETARIO.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Pago procesado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Pago procesado"
+        '422':
+          description: La orden no está lista para pago
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /ordenes/{id}/enviar-cocina:
     post:
       tags:
@@ -796,10 +1096,40 @@ paths:
                   data:
                     $ref: '#/components/schemas/MenuItem'
 
+  /ordenes/{id}/divisiones:
+    get:
+      tags:
+        - División de cuenta
+      summary: Consultar divisiones
+      description: Retorna las divisiones activas de una orden con su estado de pago
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de divisiones
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Division'
+
   /ordenes/{id}/dividir:
     post:
       tags:
-        - Pagos
+        - División de cuenta
       summary: Dividir cuenta
       description: Divide la cuenta de una orden (revisar), cada division representa lo que va a pagar cada parte cuando seqa requerido (por item o por monto)
       parameters:
@@ -853,7 +1183,7 @@ paths:
                       properties:
                         division_id:
                           type: string
-                          example: "div_001"
+                          example: "div_1_1"
                         subtotal:
                           type: number
                           example: 35000
@@ -863,6 +1193,9 @@ paths:
                         total:
                           type: number
                           example: 41650
+                        is_paid:
+                          type: boolean
+                          example: false
 
   /pagos:
     post:
@@ -1210,6 +1543,309 @@ paths:
                           type: integer
                           example: 15
 
+  /propietario:
+    get:
+      tags:
+        - Propietario
+      summary: Obtener perfil del propietario
+      description: Retorna los datos del propietario autenticado
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Perfil del propietario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Propietario'
+
+    patch:
+      tags:
+        - Propietario
+      summary: Actualizar perfil del propietario
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                  example: "Carlos Dueño"
+      responses:
+        '200':
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Propietario'
+
+  /sedes:
+    get:
+      tags:
+        - Sedes
+      summary: Listar sedes
+      description: Lista todas las sedes del propietario autenticado
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de sedes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sede'
+
+    post:
+      tags:
+        - Sedes
+      summary: Crear sede
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nombre
+              properties:
+                nombre:
+                  type: string
+                  example: "Sede Norte"
+                direccion:
+                  type: string
+                  example: "Carrera 15 # 80-10"
+                telefono:
+                  type: string
+                  example: "3109876543"
+      responses:
+        '201':
+          description: Sede creada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Sede'
+
+  /sedes/{id}:
+    get:
+      tags:
+        - Sedes
+      summary: Obtener sede
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detalles de la sede
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Sede'
+
+    patch:
+      tags:
+        - Sedes
+      summary: Actualizar sede
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                direccion:
+                  type: string
+                telefono:
+                  type: string
+                activo:
+                  type: boolean
+      responses:
+        '200':
+          description: Sede actualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Sede'
+
+  /terminales:
+    get:
+      tags:
+        - Terminales POS
+      summary: Listar terminales
+      description: Lista los terminales POS de la sede del propietario
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de terminales
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Terminal'
+
+    post:
+      tags:
+        - Terminales POS
+      summary: Crear terminal
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - terminal_name
+                - venue_id
+              properties:
+                terminal_name:
+                  type: string
+                  example: "Caja 1"
+                venue_id:
+                  type: integer
+                  example: 1
+      responses:
+        '201':
+          description: Terminal creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Terminal'
+
+  /terminales/{id}:
+    get:
+      tags:
+        - Terminales POS
+      summary: Obtener terminal
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detalles del terminal
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Terminal'
+
+    patch:
+      tags:
+        - Terminales POS
+      summary: Actualizar terminal
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                terminal_name:
+                  type: string
+                activo:
+                  type: boolean
+      responses:
+        '200':
+          description: Terminal actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Terminal'
+
 components:
   schemas:
     Mesa:
@@ -1274,7 +1910,7 @@ components:
           example: "juan.perez@gmail.com"
         rol:
           type: string
-          enum: [ADMIN, MESERO, CAJA]
+          enum: [PROPIETARIO, CAJERO, MESERO]
           example: "MESERO"
         telefono:
           type: string
@@ -1425,6 +2061,77 @@ components:
         costo_unitario:
           type: number
           example: 18000
+
+    Division:
+      type: object
+      properties:
+        division_id:
+          type: string
+          example: "div_1_1"
+        subtotal:
+          type: number
+          example: 35000
+        impuestos:
+          type: number
+          example: 6650
+        total:
+          type: number
+          example: 41650
+        is_paid:
+          type: boolean
+          example: false
+
+    Propietario:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: "Carlos Dueño"
+        email:
+          type: string
+          format: email
+          example: "carlos@restaurante.com"
+        activo:
+          type: boolean
+          example: true
+
+    Sede:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: "Sede Centro"
+        direccion:
+          type: string
+          example: "Calle 1 # 2-3"
+        telefono:
+          type: string
+          example: "3001234567"
+        activo:
+          type: boolean
+          example: true
+
+    Terminal:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        terminal_name:
+          type: string
+          example: "Caja 1"
+        venue_id:
+          type: integer
+          example: 1
+        activo:
+          type: boolean
+          example: true
 
   securitySchemes:
     BearerAuth:

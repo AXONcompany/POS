@@ -3,7 +3,6 @@ package rest
 import (
 	"github.com/AXONcompany/POS/internal/config"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/auth"
-	"github.com/AXONcompany/POS/internal/infrastructure/rest/ingredient"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/order"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/owner"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/payment"
@@ -17,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(cfg config.Config, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler, authHandler *auth.Handler, orderHandler *order.Handler, tableHandler *table.Handler, userHandler *user.Handler, paymentHandler *payment.Handler, reportHandler *report.Handler, ownerHandler *owner.Handler, venueHandler *venue.Handler, posHandler *pos.Handler) *gin.Engine {
+func NewRouter(cfg config.Config, productHandler *product.Handler, authHandler *auth.Handler, orderHandler *order.Handler, tableHandler *table.Handler, userHandler *user.Handler, paymentHandler *payment.Handler, reportHandler *report.Handler, ownerHandler *owner.Handler, venueHandler *venue.Handler, posHandler *pos.Handler) *gin.Engine {
 	if cfg.Env == "prod" {
 		gin.SetMode(gin.ReleaseMode)
 	} else {
@@ -31,7 +30,7 @@ func NewRouter(cfg config.Config, ingredientHandler *ingredient.IngredientHandle
 
 	// CORS Setup
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"}, // TODO: Para prod real, especificar el dominio
+		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -40,8 +39,7 @@ func NewRouter(cfg config.Config, ingredientHandler *ingredient.IngredientHandle
 
 	jwtSecret := []byte(cfg.JWTSecret)
 
-	RegisterRouters(r, ingredientHandler, productHandler, authHandler, orderHandler, tableHandler, userHandler, paymentHandler, reportHandler, ownerHandler, venueHandler, posHandler, jwtSecret)
+	RegisterRouters(r, productHandler, authHandler, orderHandler, tableHandler, userHandler, paymentHandler, reportHandler, ownerHandler, venueHandler, posHandler, jwtSecret)
 
 	return r
-
 }

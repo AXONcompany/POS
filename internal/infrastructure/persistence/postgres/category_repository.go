@@ -16,7 +16,7 @@ func NewCategoryRepository(db *DB) *CategoryRepository {
 }
 
 func toDomainCategory(c sqlc.Category) product.Category {
-	return product.Category{
+	cat := product.Category{
 		ID:        c.ID,
 		VenueID:   int(c.VenueID),
 		Name:      c.CategoryName,
@@ -24,12 +24,21 @@ func toDomainCategory(c sqlc.Category) product.Category {
 		UpdatedAt: ptrTime(c.UpdatedAt),
 		DeletedAt: ptrTime(c.DeletedAt),
 	}
+	if c.ColorClass.Valid {
+		cat.ColorClass = c.ColorClass.String
+	}
+	if c.Icon.Valid {
+		cat.Icon = c.Icon.String
+	}
+	return cat
 }
 
 func (r *CategoryRepository) CreateCategory(ctx context.Context, c product.Category) (*product.Category, error) {
 	row, err := r.q.CreateCategory(ctx, sqlc.CreateCategoryParams{
 		VenueID:      int32(c.VenueID),
 		CategoryName: c.Name,
+		ColorClass:   toOptionalText(c.ColorClass),
+		Icon:         toOptionalText(c.Icon),
 	})
 	if err != nil {
 		return nil, err
@@ -73,6 +82,8 @@ func (r *CategoryRepository) UpdateCategory(ctx context.Context, c product.Categ
 		ID:           c.ID,
 		VenueID:      int32(c.VenueID),
 		CategoryName: c.Name,
+		ColorClass:   toOptionalText(c.ColorClass),
+		Icon:         toOptionalText(c.Icon),
 	})
 	if err != nil {
 		return nil, err

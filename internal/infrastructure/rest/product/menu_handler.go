@@ -28,12 +28,20 @@ func (h *Handler) GetMenu(c *gin.Context) {
 }
 
 func toMenuItemResponse(p *product.Product) gin.H {
-	return gin.H{
-		"id":         p.ID,
-		"nombre":     p.Name,
-		"precio":     p.SalesPrice,
-		"disponible": p.IsActive,
+	result := gin.H{
+		"id":          p.ID,
+		"name":        p.Name,
+		"price":       p.SalesPrice,
+		"description": p.Description,
+		"isAvailable": p.IsActive,
 	}
+	if p.CategoryID != nil {
+		result["categoryId"] = *p.CategoryID
+	}
+	if p.ImageURL != "" {
+		result["image"] = p.ImageURL
+	}
+	return result
 }
 
 func (h *Handler) CreateMenuItem(c *gin.Context) {
@@ -44,15 +52,15 @@ func (h *Handler) CreateMenuItem(c *gin.Context) {
 	}
 
 	venueID := prodVenueID(c)
-	ingredients := make([]product.RecipeItem, len(req.Ingredients))
-	for i, ing := range req.Ingredients {
-		ingredients[i] = product.RecipeItem{
-			IngredientID:     ing.IngredientID,
-			QuantityRequired: ing.Quantity,
-		}
+	prod := product.Product{
+		VenueID:    venueID,
+		Name:       req.Name,
+		SalesPrice: req.SalesPrice,
+		IsActive:   true,
+		// description, image and categoryId can be set via UpdateMenuItem
 	}
 
-	created, err := h.uc.CreateMenuItem(c.Request.Context(), venueID, req.Name, req.SalesPrice, ingredients)
+	created, err := h.uc.CreateProduct(c.Request.Context(), prod)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, httputil.ErrorResponse(err.Error(), "INTERNAL_ERROR"))
 		return

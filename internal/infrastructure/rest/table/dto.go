@@ -1,40 +1,63 @@
 package table
 
-import (
-	"time"
-)
-
-// Request para crear (swagger: numero y capacidad)
+// CreateRequest maps to the frontend TableData creation payload.
 type CreateRequest struct {
-	Number   int    `json:"numero" binding:"required,gt=0"`
-	Capacity int    `json:"capacidad" binding:"required,gt=0"`
-	Status   string `json:"status"`
+	Name       string  `json:"name"`
+	Seats      int     `json:"seats" binding:"required,gt=0"`
+	X          int     `json:"x"`
+	Y          int     `json:"y"`
+	Width      int     `json:"width"`
+	Height     int     `json:"height"`
+	Shape      string  `json:"shape"`
+	Rotation   int     `json:"rotation"`
+	Color      *string `json:"color"`
+	Floor      int     `json:"floor"`
+	IsMerged   bool    `json:"isMerged"`
+	MergedFrom []int64 `json:"mergedFrom"`
 }
 
-// Request para actualizar
-type UpdateRequest struct {
-	Number      *int       `json:"table_number" binding:"omitempty,gt=0"`
-	Capacity    *int       `json:"capacity" binding:"omitempty,gt=0"`
-	Status      *string    `json:"status"`
-	ArrivalTime *time.Time `json:"arrival_time"`
+// FullUpdateRequest replaces all mutable fields of a table (PUT /mesas/:id).
+type FullUpdateRequest struct {
+	Name             string  `json:"name"`
+	Seats            int     `json:"seats"`
+	Status           string  `json:"status"`
+	Guests           int     `json:"guests"`
+	AssignedWaiterId *int    `json:"assignedWaiterId"`
+	CheckInTime      *string `json:"checkInTime"`
+	X                int     `json:"x"`
+	Y                int     `json:"y"`
+	Width            int     `json:"width"`
+	Height           int     `json:"height"`
+	Shape            string  `json:"shape"`
+	Rotation         int     `json:"rotation"`
+	Color            *string `json:"color"`
+	Floor            int     `json:"floor"`
+	IsMerged         bool    `json:"isMerged"`
+	MergedFrom       []int64 `json:"mergedFrom"`
 }
 
-// Request para actualizar solo el estado (swagger: PATCH /mesas/:id/estado)
+// UpdateEstadoRequest is used by PATCH /mesas/:id/estado (status-only update).
 type UpdateEstadoRequest struct {
 	Estado string `json:"estado" binding:"required"`
 }
 
-// Request para asignar mesero
-type AssignWaitressRequest struct {
-	WaitressID int64 `json:"waitress_id" binding:"required"`
-}
-
-// Response
+// Response matches the frontend TableData interface (camelCase JSON keys).
 type Response struct {
-	ID          int64      `json:"id"`
-	Number      int        `json:"number"`
-	Capacity    int        `json:"capacity"`
-	Status      string     `json:"state"`
-	ArrivalTime *time.Time `json:"arrival_time,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
+	ID               int64   `json:"id"`
+	Name             string  `json:"name"`
+	Seats            int     `json:"seats"`
+	Status           string  `json:"status"`
+	Guests           int     `json:"guests"`
+	AssignedWaiterId *int    `json:"assignedWaiterId,omitempty"`
+	CheckInTime      *string `json:"checkInTime,omitempty"`
+	X                int     `json:"x"`
+	Y                int     `json:"y"`
+	Width            int     `json:"width"`
+	Height           int     `json:"height"`
+	Shape            string  `json:"shape"`
+	Rotation         int     `json:"rotation"`
+	Color            *string `json:"color,omitempty"`
+	Floor            int     `json:"floor"`
+	IsMerged         bool    `json:"isMerged"`
+	MergedFrom       []int64 `json:"mergedFrom,omitempty"`
 }

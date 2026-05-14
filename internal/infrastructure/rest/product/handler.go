@@ -25,21 +25,22 @@ func prodVenueID(c *gin.Context) int {
 
 func toCategoryResponse(c *product.Category) CategoryResponse {
 	return CategoryResponse{
-		ID:        c.ID,
-		Name:      c.Name,
-		CreatedAt: c.CreatedAt,
-		UpdatedAt: c.UpdatedAt,
+		ID:         c.ID,
+		Name:       c.Name,
+		ColorClass: c.ColorClass,
+		Icon:       c.Icon,
 	}
 }
 
 func toProductResponse(p *product.Product) ProductResponse {
 	return ProductResponse{
-		ID:         p.ID,
-		Name:       p.Name,
-		SalesPrice: p.SalesPrice,
-		IsActive:   p.IsActive,
-		CreatedAt:  p.CreatedAt,
-		UpdatedAt:  p.UpdatedAt,
+		ID:          p.ID,
+		Name:        p.Name,
+		Price:       p.SalesPrice,
+		Description: p.Description,
+		CategoryId:  p.CategoryID,
+		Image:       p.ImageURL,
+		IsAvailable: p.IsActive,
 	}
 }
 
@@ -54,8 +55,10 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 
 	venueID := prodVenueID(c)
 	cat := product.Category{
-		VenueID: venueID,
-		Name:    req.Name,
+		VenueID:    venueID,
+		Name:       req.Name,
+		ColorClass: req.ColorClass,
+		Icon:       req.Icon,
 	}
 
 	created, err := h.uc.CreateCategory(c.Request.Context(), cat)
@@ -101,10 +104,13 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 
 	venueID := prodVenueID(c)
 	prod := product.Product{
-		VenueID:    venueID,
-		Name:       req.Name,
-		SalesPrice: req.SalesPrice,
-		IsActive:   req.IsActive,
+		VenueID:     venueID,
+		Name:        req.Name,
+		SalesPrice:  req.Price,
+		Description: req.Description,
+		CategoryID:  req.CategoryId,
+		ImageURL:    req.Image,
+		IsActive:    req.IsAvailable,
 	}
 
 	created, err := h.uc.CreateProduct(c.Request.Context(), prod)
@@ -137,62 +143,4 @@ func (h *Handler) GetAllProducts(c *gin.Context) {
 		"page":      page,
 		"page_size": pageSize,
 	})
-}
-
-// Recipes
-
-func (h *Handler) AddIngredient(c *gin.Context) {
-	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product id"})
-		return
-	}
-
-	var req AddIngredientRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"errors": FormatValidationErrors(err)})
-		return
-	}
-
-	venueID := prodVenueID(c)
-	item, err := h.uc.AddIngredient(c.Request.Context(), venueID, productID, req.IngredientID, req.Quantity)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, RecipeItemResponse{
-		ID:           item.ID,
-		ProductID:    item.ProductID,
-		IngredientID: item.IngredientID,
-		Quantity:     item.QuantityRequired,
-	})
-}
-
-func (h *Handler) GetIngredients(c *gin.Context) {
-	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product id"})
-		return
-	}
-
-	items, err := h.uc.GetProductIngredients(c.Request.Context(), productID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	response := make([]RecipeItemResponse, len(items))
-	for i, item := range items {
-		response[i] = RecipeItemResponse{
-			ID:             item.ID,
-			ProductID:      item.ProductID,
-			IngredientID:   item.IngredientID,
-			IngredientName: item.IngredientName,
-			UnitOfMeasure:  item.UnitOfMeasure,
-			Quantity:       item.QuantityRequired,
-		}
-	}
-
-	c.JSON(http.StatusOK, response)
 }

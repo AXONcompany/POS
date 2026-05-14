@@ -1,11 +1,9 @@
 package rest
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/auth"
-	"github.com/AXONcompany/POS/internal/infrastructure/rest/ingredient"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/middleware"
 	orderrest "github.com/AXONcompany/POS/internal/infrastructure/rest/order"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/owner"
@@ -19,9 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHandler, productHandler *product.Handler, authHandler *auth.Handler, orderHandler *orderrest.Handler, tableHandler *table.Handler, userHandler *user.Handler, paymentHandler *payment.Handler, reportHandler *report.Handler, ownerHandler *owner.Handler, venueHandler *venue.Handler, posHandler *pos.Handler, jwtSecret []byte) {
-
-	log.Printf("RegisterRouters called, ingredientHandler is nil: %v", ingredientHandler == nil)
+func RegisterRouters(r *gin.Engine, productHandler *product.Handler, authHandler *auth.Handler, orderHandler *orderrest.Handler, tableHandler *table.Handler, userHandler *user.Handler, paymentHandler *payment.Handler, reportHandler *report.Handler, ownerHandler *owner.Handler, venueHandler *venue.Handler, posHandler *pos.Handler, jwtSecret []byte) {
 
 	// Health checks
 	r.GET("/health", func(c *gin.Context) {
@@ -43,6 +39,7 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 	authPublic := r.Group("/auth")
 	{
 		authPublic.POST("/login", authHandler.Login)
+		authPublic.POST("/pin-login", authHandler.PinLogin)
 		authPublic.POST("/register-owner", authHandler.RegisterOwner)
 	}
 
@@ -94,21 +91,9 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 			mesas.GET("/:id", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), tableHandler.GetByID)
 
 			mesas.POST("", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.Create)
+			mesas.PUT("/:id", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), tableHandler.FullUpdate)
 			mesas.PATCH("/:id/estado", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.UpdateEstado)
 			mesas.DELETE("/:id", middleware.RequireRoles(RoleCajero, RolePropietario), tableHandler.Delete)
-		}
-
-		// --- INGREDIENTES ---
-		ingredientes := api.Group("/ingredientes")
-		ingredientes.Use(middleware.RequireRoles(RolePropietario))
-		{
-			ingredientes.GET("", ingredientHandler.GetAll)
-			ingredientes.GET("/report", ingredientHandler.GetInventoryReport)
-			ingredientes.POST("", ingredientHandler.Create)
-			ingredientes.GET("/:id", ingredientHandler.GetByID)
-			ingredientes.PUT("/:id", ingredientHandler.Update)
-			ingredientes.PATCH("/:id/stock", ingredientHandler.UpdateStock)
-			ingredientes.DELETE("/:id", ingredientHandler.Delete)
 		}
 
 		// --- CATEGORIAS ---
@@ -119,14 +104,12 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 			categorias.GET("", productHandler.GetAllCategories)
 		}
 
-		// --- PRODUCTS (interno, mantener compatibilidad) ---
+		// --- PRODUCTS ---
 		products := api.Group("/products")
 		products.Use(middleware.RequireRoles(RolePropietario))
 		{
 			products.POST("", productHandler.CreateProduct)
 			products.GET("", productHandler.GetAllProducts)
-			products.POST("/:id/ingredients", productHandler.AddIngredient)
-			products.GET("/:id/ingredients", productHandler.GetIngredients)
 		}
 
 		// --- MENU ---
@@ -148,6 +131,7 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 			ordenes.POST("/:id/enviar-cocina", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.SendToKitchen)
 			ordenes.PATCH("/:id/status", middleware.RequireRoles(RoleMesero, RoleCajero, RolePropietario), orderHandler.UpdateOrderStatus)
 			ordenes.POST("/:id/dividir", middleware.RequireRoles(RoleCajero, RolePropietario), orderHandler.DivideOrder)
+			ordenes.GET("/:id/divisiones", middleware.RequireRoles(RoleCajero, RolePropietario), orderHandler.GetDivisions)
 
 			// Checkout
 			checkout := ordenes.Group("/:id/checkout")
@@ -178,7 +162,6 @@ func RegisterRouters(r *gin.Engine, ingredientHandler *ingredient.IngredientHand
 		reportes.Use(middleware.RequireRoles(RolePropietario))
 		{
 			reportes.GET("/ventas", reportHandler.GetSalesReport)
-			reportes.GET("/inventario", reportHandler.GetInventoryReport)
 			reportes.GET("/propinas", reportHandler.GetTipsReport)
 		}
 	}

@@ -16,18 +16,35 @@ func NewPaymentRepository(db *DB) *PaymentRepository {
 }
 
 func (r *PaymentRepository) Create(ctx context.Context, p *payment.Payment) (*payment.Payment, error) {
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
 	query := `
 		INSERT INTO payments (order_id, division_id, payment_method, amount, tip, total, status, reference, venue_id, pos_terminal_id, user_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, created_at`
 
-	err := r.db.Pool.QueryRow(ctx, query,
+	err = tx.QueryRow(ctx, query,
 		p.OrderID, p.DivisionID, p.PaymentMethod, p.Amount, p.Tip, p.Total,
 		p.Status, p.Reference, p.VenueID, p.POSTerminalID, p.UserID,
 	).Scan(&p.ID, &p.CreatedAt)
 
 	if err != nil {
 		return nil, fmt.Errorf("create payment: %w", err)
+	}
+
+	if p.DivisionID != nil && *p.DivisionID != "" {
+		_, err = tx.Exec(ctx, "UPDATE order_divisions SET is_paid = true WHERE id = $1", *p.DivisionID)
+		if err != nil {
+			return nil, fmt.Errorf("update division status: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
 	}
 
 	return p, nil
