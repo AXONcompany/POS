@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/AXONcompany/POS/internal/domain/ingredient"
 )
 
 // ReportRepository ejecuta queries de reportes directamente.
@@ -69,37 +67,6 @@ func (r *ReportRepository) GetSalesReport(ctx context.Context, venueID int, star
 	}
 
 	return totalSales, totalOrders, avgTicket, details, nil
-}
-
-func (r *ReportRepository) GetInventoryReport(ctx context.Context, venueID int) ([]*ingredient.Ingredient, float64, error) {
-	query := `
-		SELECT id, venue_id, ingredient_name, unit_of_measure, stock, ingredient_type, created_at
-		FROM ingredients
-		WHERE venue_id = $1 AND stock < 10 AND deleted_at IS NULL
-		ORDER BY stock ASC`
-
-	rows, err := r.db.Pool.Query(ctx, query, venueID)
-	if err != nil {
-		return nil, 0, fmt.Errorf("inventory report: %w", err)
-	}
-	defer rows.Close()
-
-	items := make([]*ingredient.Ingredient, 0)
-	for rows.Next() {
-		i := &ingredient.Ingredient{}
-		if err := rows.Scan(&i.ID, &i.VenueID, &i.Name, &i.UnitOfMeasure, &i.Stock, &i.IngredientType, &i.CreatedAt); err != nil {
-			return nil, 0, fmt.Errorf("scan ingredient: %w", err)
-		}
-		items = append(items, i)
-	}
-
-	var totalValue float64
-	err = r.db.Pool.QueryRow(ctx, `SELECT COALESCE(SUM(stock * 1000), 0) FROM ingredients WHERE venue_id = $1 AND deleted_at IS NULL`, venueID).Scan(&totalValue)
-	if err != nil {
-		return nil, 0, fmt.Errorf("total value: %w", err)
-	}
-
-	return items, totalValue, nil
 }
 
 // TipsReportRow contiene el resumen de propinas por mesero.

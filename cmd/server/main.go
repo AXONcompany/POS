@@ -12,7 +12,6 @@ import (
 	apppg "github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres"
 	apphttp "github.com/AXONcompany/POS/internal/infrastructure/rest"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/auth"
-	httping "github.com/AXONcompany/POS/internal/infrastructure/rest/ingredient"
 	"github.com/AXONcompany/POS/internal/infrastructure/rest/order"
 	httpowner "github.com/AXONcompany/POS/internal/infrastructure/rest/owner"
 	httppayment "github.com/AXONcompany/POS/internal/infrastructure/rest/payment"
@@ -23,7 +22,6 @@ import (
 	httpuser "github.com/AXONcompany/POS/internal/infrastructure/rest/user"
 	httpvenue "github.com/AXONcompany/POS/internal/infrastructure/rest/venue"
 	uauth "github.com/AXONcompany/POS/internal/usecase/auth"
-	uing "github.com/AXONcompany/POS/internal/usecase/ingredient"
 	uorder "github.com/AXONcompany/POS/internal/usecase/order"
 	uowner "github.com/AXONcompany/POS/internal/usecase/owner"
 	upayment "github.com/AXONcompany/POS/internal/usecase/payment"
@@ -48,10 +46,8 @@ func main() {
 	defer db.Close()
 
 	// Repository
-	ingredientRepo := apppg.NewIngredientRepository(db)
 	productRepo := apppg.NewProductRepository(db)
 	categoryRepo := apppg.NewCategoryRepository(db)
-	recipeRepo := apppg.NewRecipeRepository(db)
 	userRepo := apppg.NewUserRepository(db)
 	sessionRepo := apppg.NewSessionRepository(db)
 	orderRepo := apppg.NewOrderRepository(db)
@@ -64,8 +60,7 @@ func main() {
 	posRepo := apppg.NewPOSTerminalRepository(db)
 
 	// Service / Usecase
-	ingredientService := uing.NewUsecase(ingredientRepo)
-	productService := uproducts.NewUsecase(productRepo, categoryRepo, recipeRepo)
+	productService := uproducts.NewUsecase(productRepo, categoryRepo)
 	authUsecase := uauth.NewUsecase(userRepo, sessionRepo, cfg.JWTSecret, ownerRepo, venueRepo)
 	orderUsecase := uorder.NewUsecase(orderRepo, productRepo, auditRepo)
 	userUsecase := uuser.NewUsecase(userRepo)
@@ -77,7 +72,6 @@ func main() {
 	posUsecase := upos.NewUsecase(posRepo)
 
 	// Handler
-	ingredientHandler := httping.NewIngredientHandler(ingredientService)
 	productHandler := httpproduct.NewHandler(productService)
 	authHandler := auth.NewHandler(authUsecase)
 	orderHandler := order.NewHandler(orderUsecase)
@@ -90,7 +84,7 @@ func main() {
 	posHandler := httppos.NewHandler(posUsecase)
 
 	// Router
-	router := apphttp.NewRouter(cfg, ingredientHandler, productHandler, authHandler, orderHandler, tableHandler, userHandler, paymentHandler, reportHandler, ownerHandler, venueHandler, posHandler)
+	router := apphttp.NewRouter(cfg, productHandler, authHandler, orderHandler, tableHandler, userHandler, paymentHandler, reportHandler, ownerHandler, venueHandler, posHandler)
 
 	srv := &http.Server{
 		Addr:         cfg.GetHTTPAddr(),

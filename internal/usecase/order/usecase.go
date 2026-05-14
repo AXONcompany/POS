@@ -24,7 +24,6 @@ type Repository interface {
 
 type ProductInventoryRepository interface {
 	GetProductPrice(ctx context.Context, productID int64, venueID int) (float64, error)
-	GetRecipeLines(ctx context.Context, productID int64) ([]domainOrder.RecipeLine, error)
 }
 
 type AuditRepository interface {
@@ -73,34 +72,15 @@ func (uc *Usecase) AddProductToOrder(ctx context.Context, venueID int, orderID i
 		return domainOrder.ErrInvalidStatusTransition
 	}
 
-	// Acumular deducciones por ingrediente y establecer precio real en cada item
-	deductionMap := make(map[int64]float64)
 	for i := range items {
 		price, err := uc.invRepo.GetProductPrice(ctx, items[i].ProductID, venueID)
 		if err != nil {
 			return fmt.Errorf("get product price: %w", err)
 		}
 		items[i].UnitPrice = price
-
-		lines, err := uc.invRepo.GetRecipeLines(ctx, items[i].ProductID)
-		if err != nil {
-			return fmt.Errorf("get recipe lines: %w", err)
-		}
-		for _, line := range lines {
-			deductionMap[line.IngredientID] += line.QuantityRequired * float64(items[i].Quantity)
-		}
 	}
 
-	deductions := make([]domainOrder.StockDeduction, 0, len(deductionMap))
-	for ingredientID, qty := range deductionMap {
-		deductions = append(deductions, domainOrder.StockDeduction{
-			IngredientID: ingredientID,
-			VenueID:      venueID,
-			Quantity:     qty,
-		})
-	}
-
-	return uc.repo.AddItemsWithInventory(ctx, orderID, venueID, items, deductions)
+	return uc.repo.AddItemsWithInventory(ctx, orderID, venueID, items, nil)
 }
 
 func (uc *Usecase) GetOrderByID(ctx context.Context, venueID int, orderID int64) (*domainOrder.Order, error) {
@@ -154,22 +134,8 @@ func (uc *Usecase) CancelOrderItem(ctx context.Context, venueID, userID int, ord
 	}
 	before := *item
 
-	// Calcular restauraciones de stock
-	lines, err := uc.invRepo.GetRecipeLines(ctx, item.ProductID)
-	if err != nil {
-		return fmt.Errorf("get recipe lines: %w", err)
-	}
-	restorations := make([]domainOrder.StockDeduction, 0, len(lines))
-	for _, line := range lines {
-		restorations = append(restorations, domainOrder.StockDeduction{
-			IngredientID: line.IngredientID,
-			VenueID:      venueID,
-			Quantity:     line.QuantityRequired * float64(item.Quantity),
-		})
-	}
-
-	// TX atómica: cancelar item + restaurar stock + ajustar total
-	if err := uc.repo.CancelItemWithInventoryRestore(ctx, itemID, orderID, venueID, restorations); err != nil {
+	// TX atómica: cancelar item + ajustar total
+	if err := uc.repo.CancelItemWithInventoryRestore(ctx, itemID, orderID, venueID, nil); err != nil {
 		return err
 	}
 

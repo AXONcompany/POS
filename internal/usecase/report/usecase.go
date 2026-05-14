@@ -4,13 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/AXONcompany/POS/internal/domain/ingredient"
 	"github.com/AXONcompany/POS/internal/infrastructure/persistence/postgres"
 )
 
 type Repository interface {
 	GetSalesReport(ctx context.Context, venueID int, startDate, endDate time.Time, reportType string) (float64, int, float64, []postgres.SalesReportRow, error)
-	GetInventoryReport(ctx context.Context, venueID int) ([]*ingredient.Ingredient, float64, error)
 	GetTipsReport(ctx context.Context, venueID int, startDate, endDate time.Time) ([]postgres.TipsReportRow, error)
 }
 
@@ -37,18 +35,6 @@ func (uc *Usecase) GetSalesReport(ctx context.Context, venueID int, startDate, e
 		"total_ordenes":   totalOrders,
 		"ticket_promedio": avgTicket,
 		"detalle":         details,
-	}, nil
-}
-
-func (uc *Usecase) GetInventoryReport(ctx context.Context, venueID int) (map[string]interface{}, error) {
-	items, totalValue, err := uc.repo.GetInventoryReport(ctx, venueID)
-	if err != nil {
-		return nil, err
-	}
-
-	return map[string]interface{}{
-		"ingredientes_bajo_stock": items,
-		"valor_total_inventario":  totalValue,
 	}, nil
 }
 

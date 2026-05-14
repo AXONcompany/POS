@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/AXONcompany/POS/internal/config"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -42,4 +43,12 @@ func (d *DB) Close() {
 	if d != nil && d.Pool != nil {
 		d.Pool.Close()
 	}
+}
+
+func ptrTime(t pgtype.Timestamptz) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	v := t.Time
+	return &v
 }

@@ -9,9 +9,7 @@ import (
 )
 
 type Querier interface {
-	AddRecipeItem(ctx context.Context, arg AddRecipeItemParams) (Recipe, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
-	CreateIngredient(ctx context.Context, arg CreateIngredientParams) (Ingredient, error)
 	CreateOwner(ctx context.Context, arg CreateOwnerParams) (Owner, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
@@ -20,16 +18,12 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateVenue(ctx context.Context, arg CreateVenueParams) (Venue, error)
 	DeleteCategory(ctx context.Context, arg DeleteCategoryParams) error
-	DeleteIngredient(ctx context.Context, arg DeleteIngredientParams) error
 	DeleteProduct(ctx context.Context, arg DeleteProductParams) error
-	DeleteRecipeItem(ctx context.Context, id int64) error
 	DeleteTable(ctx context.Context, arg DeleteTableParams) error
 	GetCategory(ctx context.Context, arg GetCategoryParams) (Category, error)
-	GetIngredientByID(ctx context.Context, arg GetIngredientByIDParams) (Ingredient, error)
 	GetOwnerByEmail(ctx context.Context, email string) (Owner, error)
 	GetOwnerByID(ctx context.Context, id int32) (Owner, error)
 	GetProduct(ctx context.Context, arg GetProductParams) (Product, error)
-	GetRecipeByProductID(ctx context.Context, productID int64) ([]GetRecipeByProductIDRow, error)
 	GetRoleByID(ctx context.Context, id int32) (Role, error)
 	GetRoleByName(ctx context.Context, name string) (Role, error)
 	GetSessionByToken(ctx context.Context, refreshToken string) (Session, error)
@@ -38,9 +32,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id int32) (User, error)
 	GetVenueByID(ctx context.Context, id int32) (Venue, error)
-	ListAllIngredients(ctx context.Context, venueID int32) ([]Ingredient, error)
 	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error)
-	ListIngredients(ctx context.Context, arg ListIngredientsParams) ([]Ingredient, error)
 	ListOwners(ctx context.Context) ([]Owner, error)
 	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
 	ListTables(ctx context.Context, venueID int32) ([]Table, error)
@@ -49,7 +41,6 @@ type Querier interface {
 	ListVenuesByOwner(ctx context.Context, ownerID int32) ([]Venue, error)
 	RevokeSession(ctx context.Context, refreshToken string) error
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
-	UpdateIngredient(ctx context.Context, arg UpdateIngredientParams) (Ingredient, error)
 	UpdateOwner(ctx context.Context, arg UpdateOwnerParams) (Owner, error)
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
 	UpdateTable(ctx context.Context, arg UpdateTableParams) error

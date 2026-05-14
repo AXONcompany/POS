@@ -15,7 +15,6 @@ type ProductRepository interface {
 	GetAllProducts(ctx context.Context, venueID int, page, pageSize int) ([]product.Product, error)
 	UpdateProduct(ctx context.Context, p product.Product) (*product.Product, error)
 	DeleteProduct(ctx context.Context, id int64, venueID int) error
-	CreateProductWithRecipe(ctx context.Context, p product.Product, items []product.RecipeItem) (*product.Product, error)
 }
 
 type CategoryRepository interface {
@@ -26,22 +25,15 @@ type CategoryRepository interface {
 	DeleteCategory(ctx context.Context, id int64, venueID int) error
 }
 
-type RecipeRepository interface {
-	AddRecipeItem(ctx context.Context, item product.RecipeItem) (*product.RecipeItem, error)
-	GetByProductID(ctx context.Context, productID int64) ([]product.RecipeItem, error)
-}
-
 type Usecase struct {
 	productRepo  ProductRepository
 	categoryRepo CategoryRepository
-	recipeRepo   RecipeRepository
 }
 
-func NewUsecase(productRepo ProductRepository, categoryRepo CategoryRepository, recipeRepo RecipeRepository) *Usecase {
+func NewUsecase(productRepo ProductRepository, categoryRepo CategoryRepository) *Usecase {
 	return &Usecase{
 		productRepo:  productRepo,
 		categoryRepo: categoryRepo,
-		recipeRepo:   recipeRepo,
 	}
 }
 
@@ -174,62 +166,4 @@ func (s *Usecase) DeleteProduct(ctx context.Context, id int64, venueID int) erro
 		return product.ErrInvalidID
 	}
 	return s.productRepo.DeleteProduct(ctx, id, venueID)
-}
-
-// Recipe Methods
-
-func (s *Usecase) AddIngredient(ctx context.Context, venueID int, productID, ingredientID int64, quantity float64) (*product.RecipeItem, error) {
-	if productID <= 0 || ingredientID <= 0 {
-		return nil, product.ErrInvalidID
-	}
-	if quantity <= 0 {
-		return nil, errors.New("quantity must be positive")
-	}
-
-	// Verify product exists
-	_, err := s.productRepo.GetByID(ctx, productID, venueID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, product.ErrProductNotFound
-		}
-		return nil, err
-	}
-
-	item := product.RecipeItem{
-		ProductID:        productID,
-		IngredientID:     ingredientID,
-		QuantityRequired: quantity,
-	}
-
-	return s.recipeRepo.AddRecipeItem(ctx, item)
-}
-
-func (s *Usecase) GetProductIngredients(ctx context.Context, productID int64) ([]product.RecipeItem, error) {
-	if productID <= 0 {
-		return nil, product.ErrInvalidID
-	}
-	return s.recipeRepo.GetByProductID(ctx, productID)
-}
-
-// Menu Methods
-
-func (s *Usecase) CreateMenuItem(ctx context.Context, venueID int, name string, price float64, ingredients []product.RecipeItem) (*product.Product, error) {
-	if name == "" {
-		return nil, product.ErrNameEmpty
-	}
-	if price < 0 {
-		return nil, product.ErrPriceNegative
-	}
-	if len(ingredients) == 0 {
-		return nil, errors.New("menu item must have at least one ingredient")
-	}
-
-	prod := product.Product{
-		VenueID:    venueID,
-		Name:       name,
-		SalesPrice: price,
-		IsActive:   true,
-	}
-
-	return s.productRepo.CreateProductWithRecipe(ctx, prod, ingredients)
 }
