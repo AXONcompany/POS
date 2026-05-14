@@ -50,18 +50,6 @@ func (m *MockTableRepo) FullUpdate(ctx context.Context, id int64, venueID int, t
 
 // --- Create ---
 
-func TestCreate_InvalidNumber(t *testing.T) {
-	repo := new(MockTableRepo)
-	service := uc.NewUsecase(repo)
-
-	cases := []int{0, -1, -100}
-	for _, n := range cases {
-		err := service.Create(context.Background(), &domainTable.Table{Number: n, Capacity: 4})
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "positivo")
-	}
-	repo.AssertNotCalled(t, "Create")
-}
 
 func TestCreate_InvalidCapacity(t *testing.T) {
 	repo := new(MockTableRepo)

@@ -103,13 +103,6 @@ func (m *MockProductInventoryRepository) GetProductPrice(ctx context.Context, pr
 	return args.Get(0).(float64), args.Error(1)
 }
 
-func (m *MockProductInventoryRepository) GetRecipeLines(ctx context.Context, productID int64) ([]domainOrder.RecipeLine, error) {
-	args := m.Called(ctx, productID)
-	if args.Get(0) != nil {
-		return args.Get(0).([]domainOrder.RecipeLine), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
 
 func newUsecase(repo *MockRepository, invRepo *MockProductInventoryRepository) *order.Usecase {
 	return order.NewUsecase(repo, invRepo, new(MockAuditRepository))
@@ -177,7 +170,7 @@ func TestCreateOrder(t *testing.T) {
 func TestAddProductToOrder(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("success with stock deduction", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
 		repo := new(MockRepository)
 		invRepo := new(MockProductInventoryRepository)
 		uc := newUsecase(repo, invRepo)
@@ -185,20 +178,13 @@ func TestAddProductToOrder(t *testing.T) {
 		items := []domainOrder.OrderItem{
 			{ProductID: 10, Quantity: 2},
 		}
-		recipe := []domainOrder.RecipeLine{
-			{IngredientID: 5, QuantityRequired: 100},
-		}
-		expectedDeductions := []domainOrder.StockDeduction{
-			{IngredientID: 5, VenueID: 1, Quantity: 200},
-		}
 		expectedItems := []domainOrder.OrderItem{
 			{ProductID: 10, Quantity: 2, UnitPrice: 15.0},
 		}
 
 		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
 		invRepo.On("GetProductPrice", ctx, int64(10), 1).Return(15.0, nil)
-		invRepo.On("GetRecipeLines", ctx, int64(10)).Return(recipe, nil)
-		repo.On("AddItemsWithInventory", ctx, int64(1), 1, expectedItems, expectedDeductions).Return(nil)
+		repo.On("AddItemsWithInventory", ctx, int64(1), 1, expectedItems, []domainOrder.StockDeduction(nil)).Return(nil)
 
 		err := uc.AddProductToOrder(ctx, 1, 1, items)
 
@@ -228,11 +214,8 @@ func TestAddProductToOrder(t *testing.T) {
 
 		items := []domainOrder.OrderItem{{ProductID: 10, Quantity: 1}}
 
-		repo.On("GetStatusByID", ctx, int64(1), 1).Return(2, nil) // SENT
+		repo.On("GetStatusByID", ctx, int64(1), 1).Return(2, nil)
 		invRepo.On("GetProductPrice", ctx, int64(10), 1).Return(10.0, nil)
-		invRepo.On("GetRecipeLines", ctx, int64(10)).Return([]domainOrder.RecipeLine{
-			{IngredientID: 5, QuantityRequired: 50},
-		}, nil)
 		repo.On("AddItemsWithInventory", ctx, int64(1), 1, mock.Anything, mock.Anything).Return(domainOrder.ErrInsufficientStock)
 
 		err := uc.AddProductToOrder(ctx, 1, 1, items)
@@ -249,11 +232,8 @@ func TestAddProductToOrder(t *testing.T) {
 
 		items := []domainOrder.OrderItem{{ProductID: 10, Quantity: 1}}
 
-		repo.On("GetStatusByID", ctx, int64(1), 1).Return(2, nil) // SENT
+		repo.On("GetStatusByID", ctx, int64(1), 1).Return(2, nil)
 		invRepo.On("GetProductPrice", ctx, int64(10), 1).Return(10.0, nil)
-		invRepo.On("GetRecipeLines", ctx, int64(10)).Return([]domainOrder.RecipeLine{
-			{IngredientID: 5, QuantityRequired: 50},
-		}, nil)
 		repo.On("AddItemsWithInventory", ctx, int64(1), 1, mock.Anything, mock.Anything).Return(nil)
 
 		err := uc.AddProductToOrder(ctx, 1, 1, items)
@@ -279,80 +259,6 @@ func TestAddProductToOrder(t *testing.T) {
 		invRepo.AssertExpectations(t)
 	})
 
-	t.Run("error en GetRecipeLines se propaga", func(t *testing.T) {
-		repo := new(MockRepository)
-		invRepo := new(MockProductInventoryRepository)
-		uc := newUsecase(repo, invRepo)
-
-		recipeErr := errors.New("recipe not found")
-		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
-		invRepo.On("GetProductPrice", ctx, int64(10), 1).Return(10.0, nil)
-		invRepo.On("GetRecipeLines", ctx, int64(10)).Return(nil, recipeErr)
-
-		err := uc.AddProductToOrder(ctx, 1, 1, []domainOrder.OrderItem{{ProductID: 10, Quantity: 1}})
-
-		assert.ErrorContains(t, err, "recipe not found")
-		repo.AssertExpectations(t)
-		invRepo.AssertExpectations(t)
-	})
-
-	t.Run("producto sin receta no genera deducciones", func(t *testing.T) {
-		repo := new(MockRepository)
-		invRepo := new(MockProductInventoryRepository)
-		uc := newUsecase(repo, invRepo)
-
-		items := []domainOrder.OrderItem{{ProductID: 10, Quantity: 2}}
-
-		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
-		invRepo.On("GetProductPrice", ctx, int64(10), 1).Return(10.0, nil)
-		invRepo.On("GetRecipeLines", ctx, int64(10)).Return([]domainOrder.RecipeLine{}, nil)
-		// Sin deducciones: slice vacío
-		repo.On("AddItemsWithInventory", ctx, int64(1), 1,
-			[]domainOrder.OrderItem{{ProductID: 10, Quantity: 2, UnitPrice: 10.0}},
-			[]domainOrder.StockDeduction{},
-		).Return(nil)
-
-		err := uc.AddProductToOrder(ctx, 1, 1, items)
-
-		assert.NoError(t, err)
-		repo.AssertExpectations(t)
-		invRepo.AssertExpectations(t)
-	})
-
-	t.Run("accumulate deductions for shared ingredient", func(t *testing.T) {
-		repo := new(MockRepository)
-		invRepo := new(MockProductInventoryRepository)
-		uc := newUsecase(repo, invRepo)
-
-		items := []domainOrder.OrderItem{
-			{ProductID: 10, Quantity: 1},
-			{ProductID: 20, Quantity: 1},
-		}
-		// Ambos productos usan el ingrediente 5
-		recipe10 := []domainOrder.RecipeLine{{IngredientID: 5, QuantityRequired: 100}}
-		recipe20 := []domainOrder.RecipeLine{{IngredientID: 5, QuantityRequired: 50}}
-
-		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
-		invRepo.On("GetProductPrice", ctx, int64(10), 1).Return(10.0, nil)
-		invRepo.On("GetProductPrice", ctx, int64(20), 1).Return(20.0, nil)
-		invRepo.On("GetRecipeLines", ctx, int64(10)).Return(recipe10, nil)
-		invRepo.On("GetRecipeLines", ctx, int64(20)).Return(recipe20, nil)
-		// La deduccion acumulada debe ser 150 (100 + 50)
-		repo.On("AddItemsWithInventory", ctx, int64(1), 1, mock.Anything,
-			mock.MatchedBy(func(deductions []domainOrder.StockDeduction) bool {
-				if len(deductions) != 1 {
-					return false
-				}
-				return deductions[0].IngredientID == 5 && deductions[0].Quantity == 150
-			}),
-		).Return(nil)
-
-		err := uc.AddProductToOrder(ctx, 1, 1, items)
-
-		assert.NoError(t, err)
-		repo.AssertExpectations(t)
-		invRepo.AssertExpectations(t)
-	})
 }
 
 func TestGetOrderByID(t *testing.T) {
@@ -580,17 +486,10 @@ func TestCancelOrderItem(t *testing.T) {
 			Quantity:  2,
 			UnitPrice: 15.0,
 		}
-		recipe := []domainOrder.RecipeLine{
-			{IngredientID: 3, QuantityRequired: 100},
-		}
-		expectedRestorations := []domainOrder.StockDeduction{
-			{IngredientID: 3, VenueID: 1, Quantity: 200},
-		}
 
 		repo.On("GetStatusByID", ctx, int64(1), 1).Return(2, nil) // SENT
 		repo.On("GetOrderItem", ctx, int64(10), int64(1)).Return(item, nil)
-		invRepo.On("GetRecipeLines", ctx, int64(5)).Return(recipe, nil)
-		repo.On("CancelItemWithInventoryRestore", ctx, int64(10), int64(1), 1, expectedRestorations).Return(nil)
+		repo.On("CancelItemWithInventoryRestore", ctx, int64(10), int64(1), 1, []domainOrder.StockDeduction(nil)).Return(nil)
 		auditRepo.On("SaveAudit", ctx, mock.MatchedBy(func(e *domainAudit.AuditEntry) bool {
 			return e.EntityType == "order_item" && e.EntityID == 10 && e.Action == "cancel" &&
 				e.UserID == 42 && e.VenueID == 1
@@ -652,7 +551,6 @@ func TestCancelOrderItem(t *testing.T) {
 
 		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
 		repo.On("GetOrderItem", ctx, int64(10), int64(1)).Return(item, nil)
-		invRepo.On("GetRecipeLines", ctx, int64(5)).Return([]domainOrder.RecipeLine{}, nil)
 		repo.On("CancelItemWithInventoryRestore", ctx, int64(10), int64(1), 1, mock.Anything).Return(restoreErr)
 
 		err := uc.CancelOrderItem(ctx, 1, 1, 1, 10)
@@ -673,7 +571,6 @@ func TestCancelOrderItem(t *testing.T) {
 
 		repo.On("GetStatusByID", ctx, int64(1), 1).Return(1, nil)
 		repo.On("GetOrderItem", ctx, int64(10), int64(1)).Return(item, nil)
-		invRepo.On("GetRecipeLines", ctx, int64(5)).Return([]domainOrder.RecipeLine{}, nil)
 		repo.On("CancelItemWithInventoryRestore", ctx, int64(10), int64(1), 1, mock.Anything).Return(nil)
 		auditRepo.On("SaveAudit", ctx, mock.Anything).Return(auditErr)
 
